@@ -514,7 +514,7 @@ def find() -> None:
 
     with open(opr_file, 'w') as handle:
         handle.write(
-            '#MIN_REASONABLE_INSERTSIZE={}\n#MAX_REASONABLE_INSERTSIZE={}\n#READNAME\tREFERENCE\tINSERT_SIZE\tORIENTATION_R1\tORIENTATION_R2\tSCORE\tPOSR1\tPOSR2\tQLENGTHR1\tQLENGTHR2\tPAIR_LAYOUT\n'.format(
+            '#MIN_REASONABLE_INSERTSIZE={}\n#MAX_REASONABLE_INSERTSIZE={}\n#READNAME\tREFERENCE\tINSERT_SIZE\tR1_ORIENTATION\tR2_ORIENTATION\tBWA_SCORE\tR1_START\tR2_START\tR1_ALNLENGTH\tR2_ALNLENGTH\tINSERT_ORIENTATION\n'.format(
                 minreasonable_insertsize, maxreasonable_insertsize))
 
 
@@ -537,6 +537,7 @@ def find() -> None:
                     if alignment.orientation == 'PAIREDEND' and alignment.iss >= minreasonable_insertsize and alignment.iss <= maxreasonable_insertsize:  # pe with reasonable insert size
                         x = 0
                     else:  # pe with unreasonable insert size and opr/same
+                        printstring = printstring.replace('PAIREDEND', 'IPR')
                         handle.write(printstring)
             else:  # undefined
                 continue
