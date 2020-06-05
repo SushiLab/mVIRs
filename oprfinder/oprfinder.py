@@ -6,6 +6,153 @@ from typing import List, Dict, Tuple, Counter, DefaultDict, Iterable, IO, Genera
 import logging
 import argparse
 import sys
+import subprocess
+
+
+
+def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
+    """ Takes an AlignedSegment and add percent identity and alignment length as tags
+    alignment length = MID
+    mismatches = NM
+    percent identity = (MID - NM) / MID
+    The percent identity is a value between 0.0 and 1.0
+    If the segment is unmapped then it is returned as with a percent identity of 0
+    and an alignment length of 0.
+    :param alignedSegment: The pysam AlignedSegment object
+    :return: alignedSegment: The updated pysam AlignedSegment object
+    """
+
+    # Assuming that if the id tag is present that the other tags are also there.
+    if alignedSegment.has_tag('id'):
+        return alignedSegment
+    if alignedSegment.is_unmapped:
+        alignedSegment.set_tag('id', 0.0, 'f')
+        alignedSegment.set_tag('al', 0, 'i')
+        alignedSegment.set_tag('qc', 0.0, 'f')
+        return alignedSegment
+
+    alnlength = sum(alignedSegment.get_cigar_stats()[0][0:3])
+
+    query_covered_bases = sum(alignedSegment.get_cigar_stats()[0][0:2])
+
+    query_length = alignedSegment.infer_read_length()
+    mismatches = alignedSegment.get_tag('NM')
+    percid = (alnlength - mismatches) / float(alnlength)
+    qcov = query_covered_bases / float(query_length)
+    alignedSegment.set_tag('id', percid, 'f')
+    alignedSegment.set_tag('qc', qcov, 'f')
+    alignedSegment.set_tag('al', alnlength, 'i')
+    return alignedSegment
+
+def align():
+    """
+    Takes two paired end fastq/fasta files and aligns them against a reference genome and reports sorted and filtered alignments.
+
+    Prerequisites:
+    1. R1 and R2 reads files need to have the same read names for the same insert. This can be problematic with data downloaded from SRA
+    2. The bwa needs to be contructed beforehands. E.g. You want to align against the reference genome.fasta. Then you need to call "bwa index genome.fasta".
+    Then you can provide genome.fasta as parameter for -r
+
+    Execution:
+
+    1. Align R1/R2 read files against the reference
+    2. Filter alignments by 97% identity, read coverage >=80%, alignmentlength >= 45 and remove unmapped alignments
+    3. Each readname from R1 file gets an /R1 tag to its readname. /R2 is added for R2 alignments.
+    4. This creates a temporary bam file. This bam file is sorted with samtools by name to produce the final bam file.
+
+    :return:
+    """
+
+    parser = argparse.ArgumentParser(description='Align fasta/fastq file against reference. Preprocessing step for filter/counting.')
+    parser.add_argument('-i1', action='store', help='Forward reads file', required=True)
+    parser.add_argument('-i2', action='store', help='Reverse reads file', required=True)
+    parser.add_argument('-r', action='store', help='The BWA reference', required=True)
+    parser.add_argument('-o', action='store', help='The output bam file', required=True)
+    parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
+
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        parser.print_help()
+        shutdown(1)
+
+
+
+    forward_read_file = args.i1
+    reversed_read_file = args.i2
+
+    out_bam_file = args.o
+    bwa_ref_name = args.r
+
+    min_percid = 0.97
+    remove_unmapped = True
+    min_coverage = 0.8
+    min_alength = 45
+
+    threads = args.threads
+
+    if threads <= 0:
+        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
+        shutdown(1)
+
+    logging.info('Start alignment pipeline')
+    logging.info('\tInput files:')
+
+    temp_bam_file = out_bam_file + '_temp.bam'
+    temp_bam_file_handle = None
+    logging.info(f'Executing BWA alignment:')
+    for readsfile, orientation in [(forward_read_file, '/R1'), (reversed_read_file, '/R2')]:
+
+        command = f'bwa mem -a -t {threads} {bwa_ref_name} {readsfile} | samtools view -h -F 4 -'
+        logging.info(f'\tCommand executed {command}')
+
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+        in_bam_file_handle = pysam.AlignmentFile(process.stdout, 'rb')
+        if not temp_bam_file_handle:
+            temp_bam_file_handle = pysam.AlignmentFile(temp_bam_file, "wb", template=in_bam_file_handle)
+
+        for record in in_bam_file_handle:
+            if record.is_unmapped:
+                continue
+            else:
+                updated_record = add_tags(record)
+                if updated_record.get_tag('al') >= min_alength and updated_record.get_tag('qc') >= min_coverage and updated_record.get_tag('id') >= min_percid:
+                    record.qname = ''.join([record.qname, orientation])
+                    temp_bam_file_handle.write(record)
+
+        process.stdout.close()
+        return_code = process.wait()
+        if return_code != 0:
+            logging.error(f'BWA command failed with return code {return_code}')
+            shutdown(1)
+
+    in_bam_file_handle.close()
+    temp_bam_file_handle.close()
+
+
+    logging.info(f'Executing samtools sort:')
+    command = f'samtools sort -n -m 4G -@ {threads} -o {out_bam_file} {temp_bam_file}'
+    logging.info(f'\tCommand executed {command}')
+    try:
+        returncode: int = subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e)
+    if returncode != 0:
+        raise(Exception(f'Command: {command} failed with return code {returncode}'))
+        shutdown(1)
+
+    pathlib.Path(temp_bam_file).unlink()
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -46,8 +193,10 @@ def _generate_paired_alignments(insert2alignments: Dict[str, Dict[str, List[SAML
                                 cutoff_bestscore: float = 0.95) -> Generator[
     Tuple[str, DefaultDict[str, List[PAlignment]]], None, None]:
     """
-    Iterates over all inserts and generates pairs with a cross product. Pairs with best score are returned.
+    Iterate over all inserts and generate pairs with a cross product. Pairs with best score are returned.
     Careful --> throws away single end mappers. Considers only paired reads
+
+
     :param insert2alignments:
     :return:
     """
@@ -173,15 +322,16 @@ def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]
     while True:
         iteration += 1
         logging.info(
-            'Estimating insert size by mean/stdev convergence. Iteration:\t{}. Min insert size:\t{}. Max insert size:\t{}'.format(
-                iteration, format(min(so), ',d'), format(max(so), ',d')))
+            'Estimating insert size by mean/stdev convergence. Iteration:\t{}. Min insert size:\t{}. Max insert size:\t{}. Mean insert size:\t{}. Stdev insert size:\t{}'.format(
+                iteration, format(min(so), ',d'), format(max(so), ',d'), format(int(statistics.mean(so)), ',d'), format(int(statistics.stdev(so)), ',d')))
         tmp: List[int] = []
         mean: int = int(statistics.mean(so))
         stdev: int = int(statistics.pstdev(so))
-        minval: int = mean - 2 * stdev
+        print(stdev)
+        minval: int = mean - 7 * stdev
         if minval < 0:
             minval = 0
-        maxval: int = mean + 2 * stdev
+        maxval: int = mean + 7 * stdev
         val: int
         for val in so:
             if minval > val:
@@ -190,8 +340,10 @@ def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]
                 continue
             tmp.append(val)
         so: List[int] = tmp
+
         if minvaltmp == minval and maxval == maxvaltmp:
             break
+
         minvaltmp: int = minval
         maxvaltmp: int = maxval
 
@@ -199,10 +351,17 @@ def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]
     # For mapping Illumina short-insert reads to the human genome, x is about 6-7 sigma away from the mean
     # http://bio-bwa.sourceforge.net/bwa.shtml section Estimating Insert Size Distribution
 
-    minvaltmp: int = minvaltmp - 7 * int(statistics.pstdev(so))
+    minvaltmp: int = mean - 7 * int(statistics.pstdev(so))
+
     if minvaltmp != 0:
         minvaltmp = 0
-    maxvaltmp: int = maxvaltmp + 7 * int(statistics.pstdev(so))
+
+    maxvaltmp: int = mean + 7 * int(statistics.pstdev(so))
+    logging.info(
+        'Estimating insert size by mean/stdev convergence. Iteration:\t{}. Min insert size:\t{}. Max insert size:\t{}. Mean insert size:\t{}. Stdev insert size:\t{}'.format(
+            iteration, format(minvaltmp, ',d'), format(maxvaltmp, ',d'), format(int(statistics.mean(so)), ',d'),
+            format(int(statistics.stdev(so)), ',d')))
+
     return minvaltmp, maxvaltmp, int(statistics.median(so))
 
 
@@ -289,7 +448,7 @@ def shutdown(status=0):
 
 
 def find() -> None:
-    '''
+    """
     Find OPRs in aligned inserts. This includes a couple steps:
 
     1. Read the original bam file into memory and pair --> insert2alignments. Singleton inserts are tossed.
@@ -311,7 +470,7 @@ def find() -> None:
     :param bam_file:
     :param opr_file:
     :return:
-    '''
+    """
 
     parser = argparse.ArgumentParser(
         description='Takes a BAM alignment file and detects OPRs.')
@@ -339,7 +498,7 @@ def find() -> None:
 
     # START DEBUG PARAMETERS
 
-    max_sam_lines = 1000000
+    max_sam_lines = 10000000000
     # END DEBUG PARAMETERS
 
     insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = _read_bam_file(bam_file, max_sam_lines)
@@ -389,8 +548,7 @@ def find() -> None:
         logging.info('Finished screening for OPRs and Paired-End inserts with unreasonable insert size.')
 
 
-def align():
-    x = 0
+
 
 def main():
     startup()
