@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name = "OPR Finder",
-    version = "0.1",
+    version = "1.0",
     author = "Hans-Joachim Ruscheweyh",
     author_email = "hansr@ethz.ch",
     description = ("Bioinformatic toolkit for finding OPRs in sequencing data"),
