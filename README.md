@@ -1,11 +1,11 @@
 # OPR_FINDER - Find outwards orientated read pairs in NGS sequencing data
-=======================================
+
 
 The tools aims to find outwards orientated read pairs (OPRs) in sequencing that which can be used as effective measure to detect active phages.
 
 
 ## Overview
-=======================================
+
 
 The tool is designed by Hans-Joachim Ruscheweyh and distributed under the GPLv3 license. 
 
@@ -20,7 +20,7 @@ Mirjam Zuend, Hans-Joachim Ruscheweyh, Shinichi Sunagawa. "FUNKY READS BY MIRJAM
 
 
 ## Installation
-=======================================
+
 
 
 The tool is written python but requires `bwa` and `samtools` to be installed upfront. Installation of the OPR_FINDER tool can be done with pip:
@@ -55,13 +55,13 @@ optional arguments:
 ```
 
 ## Usage
-=======================================
+
 
 The OPR_FINDER is a pipeline that is composed from two steps, alignment and finding
 
 
 ### Alignment
-=======================================
+
 
 This step takes 2 FastQ files and a reference genome as bwa index as input, performs alignment and filtering and writes a BAM file as output.
 
@@ -99,12 +99,12 @@ $ oprfinder align -i1 r1.fq.gz -i2 r2.fq.gz -r reference.fasta -o output.bam
 
 
 ### Find
-=======================================
+
 
 This step takes BAM file from the previous steps and scans its for OPRs and IPRs (inwards oriented paired reads, basically regular alignments) with unreasonable insert sizes.
 
 #### IPRs, OPRs and SAME
-=======================================
+
 
 A paired-end read can align in the following orientations:
 
@@ -134,7 +134,7 @@ R2                        -------->
 This tool reports IPRs with unreasonable insert sizes and OPRs.
 
 #### Algorithm
-=======================================
+
 
 The algorithm works the following:
 
@@ -145,7 +145,7 @@ The algorithm works the following:
 
 
 #### How to run
-=======================================
+
 
 
 ```
@@ -173,7 +173,7 @@ $ oprfinder find -i input.bam -o output.opr
 
 
 ## The Output File
-=======================================
+
 
 The output file from the `oprfinder find` script has the following columns:
 
