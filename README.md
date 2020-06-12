@@ -13,7 +13,7 @@ Questions/Comments? Write a github issue.
 
 If you use ORP_FINDER in a published work, please cite:
 
-Mirjam Zuend, Hans-Joachim Ruscheweyh, Shinichi Sunagawa. "FUNKY READS BY MIRJAM"
+`Mirjam Zuend, Hans-Joachim Ruscheweyh, Shinichi Sunagawa. "Measures of activity, genomic location and replication mode of gut microbial phages by high throughput sequencing"`
 
 
 
