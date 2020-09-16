@@ -7,7 +7,7 @@ The tools aims to find outwards orientated read pairs (OPRs) in sequencing that 
 ## Overview
 
 
-The tool is designed by Hans-Joachim Ruscheweyh and distributed under the GPLv3 license. 
+The tool was designed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Sunagawa and distributed under the GPLv3 license. 
 
 Questions/Comments? Write a github issue.
 
