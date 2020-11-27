@@ -31,7 +31,7 @@ $cd OPR_FINDER
 $pip install -r requirements.txt -e .
 
 #Test
-$biol-public-vpn-2-77:~ hans$ oprfinder -h
+$ oprfinder -h
 
 2020-06-12 15:59:46,930 INFO: Starting OPR Finder
 usage: oprfinder <command> [<args>]
