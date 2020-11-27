@@ -20,7 +20,7 @@ Questions/Comments? Write a github issue.
 
 
 
-The tool is written python (>=3.6) but requires `bwa` and `samtools` to be installed upfront. Installation of the OPR_FINDER tool can be done with pip:
+The tool is written `python (>=3.6)` but requires `bwa` and `samtools` to be installed upfront. Installation of the OPR_FINDER tool can be done with pip:
 
 ```bash
 $git clone https://github.com/SushiLab/OPR_FINDER
