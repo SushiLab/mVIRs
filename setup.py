@@ -10,7 +10,7 @@ setup(
     license = "GPLv3",
     keywords = "bioinformatics metagenomics NGS alignment OPRs Prophages",
     url = "https://github.com/SushiLab/mVIRs",
-    packages=['mvirs'],
+    packages=['mVIRs'],
     entry_points = {
         'console_scripts': ['mvirs=mVIRs.mvirs:main'],
     }
