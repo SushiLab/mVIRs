@@ -44,7 +44,7 @@ def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
     alignedSegment.set_tag('al', alnlength, 'i')
     return alignedSegment
 
-def align():
+def align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, min_coverage, min_percid, min_alength):
     """
     Takes two paired end fastq/fasta files and aligns them against a reference genome and reports sorted and filtered alignments.
 
@@ -63,39 +63,9 @@ def align():
     :return:
     """
 
-    parser = argparse.ArgumentParser(description='Align fasta/fastq file against reference. Preprocessing step for filter/counting.')
-    parser.add_argument('-i1', action='store', help='Forward reads file', required=True)
-    parser.add_argument('-i2', action='store', help='Reverse reads file', required=True)
-    parser.add_argument('-r', action='store', help='The BWA reference', required=True)
-    parser.add_argument('-o', action='store', help='The output bam file', required=True)
-    parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
-
-    try:
-        args = parser.parse_args(sys.argv[2:])
-    except:
-        parser.print_help()
-        shutdown(1)
 
 
-
-    forward_read_file = args.i1
-    reversed_read_file = args.i2
-
-    out_bam_file = args.o
-    bwa_ref_name = args.r
-
-    min_percid = 0.97
-    remove_unmapped = True
-    min_coverage = 0.8
-    min_alength = 45
-
-    threads = args.threads
-
-    if threads <= 0:
-        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
-        shutdown(1)
-
-    logging.info('Start alignment pipeline')
+    logging.info('Start alignment step')
     logging.info('\tInput files:')
 
     temp_bam_file = out_bam_file + '_temp.bam'
@@ -142,6 +112,7 @@ def align():
         shutdown(1)
 
     pathlib.Path(temp_bam_file).unlink()
+    logging.info('Finished alignment step')
 
 
 
@@ -439,15 +410,15 @@ def get_read_orientation(rev: bool) -> str:
 
 def startup():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
-    logging.info('Starting OPR Finder')
+    logging.info('Starting mVIRs')
 
 
 def shutdown(status=0):
-    logging.info('Finishing OPR Finder with status:\t{}'.format(status))
+    logging.info('Finishing mVIRs')
     sys.exit(status)
 
 
-def find() -> None:
+def find(bam_file, opr_file) -> None:
     """
     Find OPRs in aligned inserts. This includes a couple steps:
 
@@ -472,26 +443,7 @@ def find() -> None:
     :return:
     """
 
-    parser = argparse.ArgumentParser(
-        description='Takes a BAM alignment file and detects OPRs.')
-
-    parser.add_argument('-i', action='store', dest='bam', help='Input BAM/SAM file',
-                        default='', required=True)
-    parser.add_argument('-o', action='store', dest='oprfile',
-                        help='OPR output file',
-                        default=None, required=True)
-
-    try:
-        results = parser.parse_args(sys.argv[2:])
-    except:
-        parser.print_help()
-        shutdown(1)
-
-
-
-    bam_file: pathlib.Path = pathlib.Path(results.bam)
-    opr_file = pathlib.Path = pathlib.Path(results.oprfile)
-
+    logging.info('Start OPR finding step')
     logging.info('Input BAM File:\t{}'.format(bam_file))
     logging.info('Output OPR File:\t{}'.format(opr_file))
 
@@ -551,24 +503,66 @@ def find() -> None:
 
 
 
+def oprs():
+
+    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', prog='mvirs oprs')
+    parser.add_argument('i1', action='store', help='Forward reads file')
+    parser.add_argument('i2', action='store', help='Reverse reads file')
+    parser.add_argument('r', action='store', help='BWA reference')
+    parser.add_argument('b', action='store', help='Output bam file')
+    parser.add_argument('o', action='store',help='Output OPR file')
+    parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        #parser.print_help()
+        shutdown(1)
+
+
+
+    forward_read_file = args.i1
+    reversed_read_file = args.i2
+
+    out_bam_file = args.b
+    bwa_ref_name = args.r
+    opr_file = pathlib.Path(args.oprfile)
+
+    min_percid = 0.97
+    remove_unmapped = True
+    min_coverage = 0.8
+    min_alength = 45
+
+    threads = args.threads
+
+    if threads <= 0:
+        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
+        shutdown(1)
+
+    align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, min_coverage, min_percid,
+          min_alength)
+    logging.info('\n\n\n\n')
+    find(out_bam_file, opr_file)
+
+
 def main():
     startup()
 
     parser = argparse.ArgumentParser(
-        description='A toolkit to align reads and find OPRs', usage='''oprfinder <command> [<args>]
+        description='Bioinformatic toolkit for finding prophages in sequencing data', usage='''mvirs <command> [<args>]
 
     Command options
-        align     align read reads using bwa
-        find    find OPRs in alignment files
+        oprs    align reads and find OPRs
     ''')
-    parser.add_argument('command', help='Subcommand to run: align|find')
+    parser.add_argument('command', help='Subcommand to run: oprs')
 
     args = parser.parse_args(sys.argv[1:2])
 
-    if args.command == 'align':
-        align()
-    elif args.command == 'find':
-        find()
+    #if args.command == 'align':
+    #    align()
+    #elif args.command == 'find':
+    #    find()
+    if args.command == 'oprs':
+        oprs()
     else:
         print('Unrecognized command')
         parser.print_help()

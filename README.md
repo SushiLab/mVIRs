@@ -1,7 +1,7 @@
-# OPR_FINDER - Find outwards orientated read pairs in NGS sequencing data
+# mVIRs - A bioinformatic approach to locate prophages by orientation and coverage in NGS data
 
 
-The tools aims to find outwards orientated read pairs (OPRs) in sequencing that which can be used as effective measure to detect active phages.
+
 
 
 ## Overview
@@ -20,31 +20,32 @@ Questions/Comments? Write a github issue.
 
 
 
-The tool is written `python (>=3.6)` but requires `bwa` and `samtools` to be installed upfront. Installation of the OPR_FINDER tool can be done with pip:
+The tool is written in `python (>=3.6)` and requires `bwa` and `samtools` to be installed upfront. Installation of the `mVIRs` tool can be done with pip:
 
 ```bash
-$git clone https://github.com/SushiLab/OPR_FINDER
+$git clone https://github.com/SushiLab/mVIRs
 
-$cd OPR_FINDER
+$cd mVIRs
 
 #Installs the package locally
+
 $pip install -r requirements.txt -e .
 
 #Test
-$ oprfinder -h
 
-2020-06-12 15:59:46,930 INFO: Starting OPR Finder
-usage: oprfinder <command> [<args>]
+$ mvirs -h
+
+2020-12-03 15:00:47,977 INFO: Starting mVIRs
+usage: mvirs <command> [<args>]
 
     Command options
-        align     align read reads using bwa
-        find    find OPRs in alignment files
+        oprs    align reads and find OPRs
 
 
-A toolkit to align reads and find OPRs
+Bioinformatic toolkit for finding prophages in sequencing data
 
 positional arguments:
-  command     Subcommand to run: align|find
+  command     Subcommand to run: oprs
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -54,53 +55,43 @@ optional arguments:
 ## Usage
 
 
-The OPR_FINDER is a pipeline that is composed from two steps, alignment and finding
+The `mVIRs` toolkit currently aligns and detects prophages with a single command: `oprs`
 
 
-### Alignment
+### OPRS
 
 
-This step takes 2 FastQ files and a reference genome as bwa index as input, performs alignment and filtering and writes a BAM file as output.
+This step takes 2 FastQ files and a reference genome as bwa index as input, performs alignment, alignment filtering and detect OPRs:
 
 
 ```
-# r1.fq.gz 			--> Forward reads
-# r2.fq.gz 			--> Reverse reads
-# reference.fasta 	--> The reference genome as bwa index
-# output.bam 		--> The output alignment file
 
-# The bwa index has to be build before execution of the oprfinder
-$ bwa index reference.fasta
+usage: mvirs oprs [-h] [-t THREADS] i1 i2 r b o
 
-$ oprfinder align -h
+Align reads against a reference and find OPRs and IPRs.
 
-usage: oprfinder [-h] -i1 I1 -i2 I2 -r R -o O [-t THREADS]
-
-Align fasta/fastq file against reference. Preprocessing step for
-filter/counting.
+positional arguments:
+  i1          Forward reads file
+  i2          Reverse reads file
+  r           BWA reference
+  b           Output bam file
+  o           Output OPR file
 
 optional arguments:
   -h, --help  show this help message and exit
-  -i1 I1      Forward reads file
-  -i2 I2      Reverse reads file
-  -r R        The BWA reference
-  -o O        The output bam file
   -t THREADS  Number of threads to use. (Default = 1)
-  
-# The oprfinder can then be executed with the following command:
 
-$ oprfinder align -i1 r1.fq.gz -i2 r2.fq.gz -r reference.fasta -o output.bam
+  
+# The oprs subcommand can then be executed with the following command:
+
+$ mvirs oprs r1.fq.gz r2.fq.gz reference.fasta output.bam output.oprs
 
 ```
 
 
 
-### Find
 
-
-This step takes BAM file from the previous steps and scans its for OPRs and IPRs (inwards oriented paired reads, basically regular alignments) with unreasonable insert sizes.
-
-#### IPRs, OPRs and SAME
+## IPRs, OPRs and SAME
 
 
 A paired-end read can align in the following orientations:
@@ -141,32 +132,6 @@ The algorithm works the following:
   - Report the insert as OPR if there is no IPR with reasonable insert size within the 3% cutoff and if the OPR is the best scoring alignment.
 
 
-#### How to run
-
-
-
-```
-
-# input.bam 		--> The output alignment file from the previous step
-# output.opr        --> Tab separated file with entries for each OPR and IPR with unreasonble insert size 
-
-
-$ oprfinder find -h
-
-usage: oprfinder [-h] -i BAM -o OPRFILE
-
-Takes a BAM alignment file and detects OPRs.
-
-optional arguments:
-  -h, --help  show this help message and exit
-  -i BAM      Input BAM/SAM file
-  -o OPRFILE  OPR output file
-  
-# The oprfinder can then be executed with the following command:
-
-$ oprfinder find -i input.bam -o output.opr
-
-```
 
 
 ## The Output File

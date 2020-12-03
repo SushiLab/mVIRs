@@ -2,16 +2,16 @@ from setuptools import setup
 
 
 setup(
-    name = "OPR Finder",
+    name = "mVIRs",
     version = "1.0",
     author = "Hans-Joachim Ruscheweyh",
     author_email = "hansr@ethz.ch",
-    description = ("Bioinformatic toolkit for finding OPRs in sequencing data"),
+    description = ("Bioinformatic toolkit for finding prophages in sequencing data"),
     license = "GPLv3",
-    keywords = "bioinformatics metagenomics ngs OPR ",
-    url = "https://github.com/SushiLab/OPR_Finder",
-    packages=['oprfinder'],
+    keywords = "bioinformatics metagenomics NGS alignment OPRs Prophages",
+    url = "https://github.com/SushiLab/mVIRs",
+    packages=['mvirs'],
     entry_points = {
-        'console_scripts': ['oprfinder=oprfinder.oprfinder:main'],
+        'console_scripts': ['mvirs=mVIRs.mvirs:main'],
     }
 )
