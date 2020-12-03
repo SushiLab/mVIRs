@@ -525,7 +525,7 @@ def oprs():
 
     out_bam_file = args.b
     bwa_ref_name = args.r
-    opr_file = pathlib.Path(args.oprfile)
+    opr_file = pathlib.Path(args.o)
 
     min_percid = 0.97
     remove_unmapped = True
