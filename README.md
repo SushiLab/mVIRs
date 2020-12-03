@@ -137,7 +137,7 @@ The algorithm works the following:
 ## The Output File
 
 
-The output file from the `oprfinder find` script has the following columns:
+The output file from the `mvirs oprs` script has the following columns:
 
 - `MIN_REASONABLE_INSERTSIZE`: The low boundary for regular insert sizes
 - `MAX_REASONABLE_INSERTSIZE`: The high boundary for regular insert sizes
