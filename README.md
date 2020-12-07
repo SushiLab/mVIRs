@@ -1,8 +1,9 @@
-# mVIRs - A bioinformatic approach to locate prophages by orientation and coverage in NGS data
+# mVIRs - A bioinformatic approach to locate prophages by alignment orientation in NGS data
 
 
-
-
+<p align="center">
+<img src="pics/mVIRs.png" width="500"  />
+</p>
 
 ## Overview
 
