@@ -159,7 +159,7 @@ An example output is below:
 
 ```
 #MIN_REASONABLE_INSERTSIZE=0
-#MAX_REASONABLE_INSERTSIZE=867
+#MAX_REASONABLE_INSERTSIZE=1628
 ```
 | #READNAME                               	| REFERENCE             	| INSERT_SIZE 	| R1_ORIENTATION 	| R2_ORIENTATION 	| BWA_SCORE 	| R1_START 	| R2_START 	| R1_ALNLENGTH 	| R2_ALNLENGTH 	| INSERT_ORIENTATION 	|
 |-----------------------------------------	|-----------------------	|-------------	|----------------	|----------------	|-----------	|----------	|----------	|--------------	|--------------	|--------------------	|
