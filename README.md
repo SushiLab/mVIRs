@@ -161,23 +161,32 @@ An example output is below:
 #MIN_REASONABLE_INSERTSIZE=0
 #MAX_REASONABLE_INSERTSIZE=867
 ```
-**INSERTNAME**|**REFERENCE**|**INSERT\_SIZE**|**R1\_ORIENTATION**|**R2\_ORIENTATION**|**BWA\_SCORE**|**R1\_START**|**R2\_START**|**R1\_ALNLENGTH**|**R2\_ALNLENGTH**|**READ\_ORIENTATION**
-:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:
-A00917:31:HNNVNDSXX:2:1101:2031:3944|KB1|680277|forward|forward|300|549739|1229866|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:2230:18067|KB1|2158899|reverse|reverse|300|132294|2291043|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:2871:4773|KB1|936577|forward|forward|299|383083|1319511|150|149|SAME
-A00917:31:HNNVNDSXX:2:1101:3884:4053|KB1|571933|reverse|forward|300|50395|622178|150|150|OPR
-A00917:31:HNNVNDSXX:2:1101:5132:13197|KB1|3025889|forward|reverse|300|3025830|91|150|150|OPR
-A00917:31:HNNVNDSXX:2:1101:5358:12242|KB1|3025889|forward|reverse|295|3025830|91|150|150|OPR
-A00917:31:HNNVNDSXX:2:1101:5710:28604|KB1|406369|reverse|reverse|295|708899|302675|145|150|SAME
-A00917:31:HNNVNDSXX:2:1101:8395:16939|KB1|361736|reverse|forward|297|684580|322991|147|150|IPR
-A00917:31:HNNVNDSXX:2:1101:11071:18505|KB1|201078|reverse|forward|300|447787|246859|150|150|IPR
-A00917:31:HNNVNDSXX:2:1101:12346:27571|KB1|2071244|forward|reverse|300|309857|2380951|150|150|IPR
-A00917:31:HNNVNDSXX:2:1101:13593:10848|KB1|391337|forward|forward|300|1063656|1454843|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:13829:12727|KB1|1414532|reverse|reverse|300|1886023|471641|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:15619:8312|KB1|86962|forward|forward|295|1744410|1657598|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:15845:8296|KB1|86962|forward|forward|295|1744410|1657598|150|150|SAME
-A00917:31:HNNVNDSXX:2:1101:15845:31939|KB1|1279181|forward|reverse|295|1269110|2548141|150|150|IPR
+| #READNAME                               	| REFERENCE             	| INSERT_SIZE 	| R1_ORIENTATION 	| R2_ORIENTATION 	| BWA_SCORE 	| R1_START 	| R2_START 	| R1_ALNLENGTH 	| R2_ALNLENGTH 	| INSERT_ORIENTATION 	|
+|-----------------------------------------	|-----------------------	|-------------	|----------------	|----------------	|-----------	|----------	|----------	|--------------	|--------------	|--------------------	|
+| K00206:180:H2CJWBBXY:8:1107:6644:49230  	| SalmonellaLT2         	| 41477       	| forward        	| reverse        	| 297       	| 1255437  	| 1214111  	| 151          	| 147          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:7182:12181  	| SalmonellaLT2         	| 41392       	| forward        	| reverse        	| 288       	| 1255606  	| 1214365  	| 151          	| 143          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:7436:46873  	| SalmonellaLT2         	| 41449       	| reverse        	| forward        	| 302       	| 1214126  	| 1255424  	| 151          	| 151          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:8582:43304  	| SalmonellaLT2         	| 1351429     	| reverse        	| reverse        	| 225       	| 4216570  	| 2865291  	| 150          	| 80           	| SAME               	|
+| K00206:180:H2CJWBBXY:8:1107:9404:2176   	| SalmonellaLT2         	| 41222       	| forward        	| reverse        	| 291       	| 1255124  	| 1214053  	| 151          	| 145          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:10470:14959 	| SalmonellaLT2         	| 41453       	| reverse        	| forward        	| 302       	| 1214268  	| 1255570  	| 151          	| 151          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:10724:29958 	| SalmonellaLT2         	| 140         	| reverse        	| forward        	| 201       	| 475072   	| 475135   	| 140          	| 76           	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:11464:41159 	| SalmonellaLT2         	| 42330       	| reverse        	| forward        	| 296       	| 1849504  	| 1891684  	| 151          	| 150          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:12124:11354 	| SalmonellaLT2         	| 41504       	| reverse        	| forward        	| 293       	| 1214125  	| 1255487  	| 151          	| 142          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:12195:32754 	| SalmonellaLT2         	| 41626       	| reverse        	| forward        	| 302       	| 1214118  	| 1255593  	| 151          	| 151          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:14042:47630 	| SalmonellaLT2         	| 41508       	| forward        	| reverse        	| 292       	| 1255546  	| 1214189  	| 151          	| 146          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:15077:21043 	| SalmonellaLT2_plasmid 	| 93601       	| reverse        	| forward        	| 270       	| 317      	| 93783    	| 145          	| 135          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:15625:19953 	| SalmonellaLT2_plasmid 	| 93573       	| reverse        	| forward        	| 287       	| 59       	| 93481    	| 151          	| 151          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1107:15777:9842  	| SalmonellaLT2_plasmid 	| 93693       	| reverse        	| forward        	| 275       	| 234      	| 93803    	| 151          	| 124          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1112:7710:5675   	| SalmonellaLT2         	| 764617      	| forward        	| reverse        	| 258       	| 1243497  	| 2007992  	| 151          	| 122          	| IPR                	|
+| K00206:180:H2CJWBBXY:8:1112:8308:5270   	| SalmonellaLT2         	| 729216      	| reverse        	| reverse        	| 276       	| 1667393  	| 938328   	| 151          	| 125          	| SAME               	|
+| K00206:180:H2CJWBBXY:8:1112:8674:4813   	| SalmonellaLT2         	| 729220      	| reverse        	| reverse        	| 275       	| 1667393  	| 938324   	| 151          	| 129          	| SAME               	|
+| K00206:180:H2CJWBBXY:8:1112:8937:34248  	| SalmonellaLT2         	| 41470       	| reverse        	| forward        	| 301       	| 1214052  	| 1255372  	| 151          	| 150          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1112:7710:5675   	| SalmonellaLT2         	| 764617      	| forward        	| reverse        	| 258       	| 1243497  	| 2007992  	| 151          	| 122          	| IPR                	|
+| K00206:180:H2CJWBBXY:8:1112:8308:5270   	| SalmonellaLT2         	| 729216      	| reverse        	| reverse        	| 276       	| 1667393  	| 938328   	| 151          	| 125          	| SAME               	|
+| K00206:180:H2CJWBBXY:8:1112:8674:4813   	| SalmonellaLT2         	| 729220      	| reverse        	| reverse        	| 275       	| 1667393  	| 938324   	| 151          	| 129          	| SAME               	|
+| K00206:180:H2CJWBBXY:8:1112:8937:34248  	| SalmonellaLT2         	| 41470       	| reverse        	| forward        	| 301       	| 1214052  	| 1255372  	| 151          	| 150          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1112:10379:15715 	| SalmonellaLT2         	| 139         	| reverse        	| forward        	| 259       	| 3518002  	| 3518011  	| 139          	| 130          	| OPR                	|
+| K00206:180:H2CJWBBXY:8:1112:10774:11020 	| SalmonellaLT2         	| 1336253     	| reverse        	| forward        	| 297       	| 2055194  	| 719092   	| 151          	| 151          	| IPR                	|
 
 
 
