@@ -21,7 +21,7 @@ Questions/Comments? Write a github issue.
 
 
 
-The tool is written in `python (>=3.6.1)` and requires `bwa` and `samtools` to be installed upfront. Installation of the `mVIRs` tool can be done with pip:
+The tool is written in `python (>=3.6.1)` and requires `bwa` (tested with v0.7.17-r1188) and `samtools` (tested with v1.9) to be installed upfront. Installation of the `mVIRs` tool can be done with pip:
 
 ```bash
 $git clone https://github.com/SushiLab/mVIRs
