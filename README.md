@@ -32,6 +32,8 @@ $cd mVIRs
 
 $pip install -r requirements.txt -e .
 
+# Add --user for installation with user permissions only
+
 #Test
 
 $ mvirs -h
