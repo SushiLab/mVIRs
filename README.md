@@ -12,6 +12,12 @@ The tool was designed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Suna
 
 Questions/Comments? Write a github issue.
 
+If you are using mVIRs, please cite:
+> Mirjam Zünd; Hans-Joachim Ruscheweyh; Christopher M. Field; Miguelangel Cuenca; Daniel Hoces; Wolf-Dietrich Hardt; Shinichi Sunagawa.
+> **High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains**
+, Microbiome, accepted
+
+Analysis in the publication were executed using version 1.0.
 
 
 
@@ -19,36 +25,80 @@ Questions/Comments? Write a github issue.
 
 ## Installation
 
+The tools is written in `python` and requires some dependencies installed upfront:
+
+- `Python>=3.6.1`
+	- `pysam>=0.15.2`
+- `bwa=v0.7.17-r1188`
+- `samtools=1.9`
 
 
-The tool is written in `python (>=3.6.1)` and requires `bwa` (tested with v0.7.17-r1188) and `samtools` (tested with v1.9) to be installed upfront. Installation of the `mVIRs` tool can be done with pip:
+### Installation using Conda
+
+The easiest method to install mvirs is to use the conda package manager which will automatically set up an environment with the dependencies in the correct versions.
 
 ```bash
-$git clone https://github.com/SushiLab/mVIRs
+# Install dependencies
+$ conda env create -f conda_env_mvirs.yaml
+$ conda activate mvirs
 
-$cd mVIRs
+$ git clone https://github.com/SushiLab/mVIRs
+$ cd mVIRs
 
 #Installs the package locally
-
-$pip install -r requirements.txt -e .
-
+$ pip install -r requirements.txt -e .
 # Add --user for installation with user permissions only
 
 #Test
-
 $ mvirs -h
 
-2020-12-03 15:00:47,977 INFO: Starting mVIRs
+2021-02-12 11:37:51,250 INFO: Starting mVIRs
 usage: mvirs <command> [<args>]
 
     Command options
-        oprs    align reads and find OPRs
+        oprs    align reads to a reference and report outward orientated alignments (OPRs)
+        index   index the reference database using bwa
 
 
 Bioinformatic toolkit for finding prophages in sequencing data
 
 positional arguments:
-  command     Subcommand to run: oprs
+  command     Subcommand to run: oprs | index
+
+optional arguments:
+  -h, --help  show this help message and exit
+  
+
+```
+
+
+### Manual Installation
+
+Manual installation is possible but not recommended. Install via pip after installation of dependencies:
+
+```bash
+$ git clone https://github.com/SushiLab/mVIRs
+$ cd mVIRs
+
+#Installs the package locally
+$ pip install -r requirements.txt -e .
+# Add --user for installation with user permissions only
+
+#Test
+$ mvirs -h
+
+2021-02-12 11:37:51,250 INFO: Starting mVIRs
+usage: mvirs <command> [<args>]
+
+    Command options
+        oprs    align reads to a reference and report outward orientated alignments (OPRs)
+        index   index the reference database using bwa
+
+
+Bioinformatic toolkit for finding prophages in sequencing data
+
+positional arguments:
+  command     Subcommand to run: oprs | index
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -58,31 +108,58 @@ optional arguments:
 ## Usage
 
 
-The `mVIRs` toolkit currently aligns and detects prophages with a single command: `oprs`
+The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired end reads against the reference database and detects so called outward orientated reads.
+
+### INDEX
+
+This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `oprs` command
+
+```
+$ mvirs index --help
+
+2021-02-12 11:41:37,196 INFO: Starting mVIRs
+usage: mvirs index [-h] r
+
+Generates the BWA index that is required for the oprs command.
+
+positional arguments:
+  r           Input FastA or FastQ file for index building. Gzipped input allowed.
+
+optional arguments:
+  -h, --help  show this help message and exit
+2021-02-12 11:41:37,199 INFO: Finishing mVIRs
+
+# The index subcommand can then be executed with the following command:
+
+$ mvirs index reference.fasta
+```
 
 
 ### OPRS
 
 
-This step takes 2 FastQ files and a reference genome as bwa index as input, performs alignment, alignment filtering and detect OPRs:
+This step takes 2 sequence files and a reference database as bwa index as input, performs alignment, alignment filtering and detection of OPRs:
 
 
 ```
 
+$ mvirs oprs --help
+2021-02-12 11:42:35,434 INFO: Starting mVIRs
 usage: mvirs oprs [-h] [-t THREADS] i1 i2 r b o
 
-Align reads against a reference and find OPRs and IPRs.
+Align paired reads against a reference database and find outward orientated paired reads (OPRs).
 
 positional arguments:
-  i1          Forward reads file
-  i2          Reverse reads file
-  r           BWA reference
-  b           Output bam file
-  o           Output OPR file
+  i1          Forward reads file. FastQ or FastA files supported. Input can be gzipped
+  i2          Reverse reads file. FastQ or FastA files supported. Input can be gzipped
+  r           BWA reference. Has to be created upfront using the mvirs oprs command.
+  b           Output BAM file. File with all filtered alignments created by aligning forward and reverse reads against the reference database.
+  o           Output OPR file. File with all OPRs and IPRs found in the alignment file.
 
 optional arguments:
   -h, --help  show this help message and exit
   -t THREADS  Number of threads to use. (Default = 1)
+2021-02-12 11:42:35,437 INFO: Finishing mVIRs
 
   
 # The oprs subcommand can then be executed with the following command:
@@ -124,7 +201,7 @@ R2                        -------->
 
 This tool reports IPRs with unreasonable insert sizes and OPRs.
 
-#### Algorithm
+### Algorithm
 
 
 The algorithm works the following:

@@ -7,6 +7,7 @@ import logging
 import argparse
 import sys
 import subprocess
+import gzip
 
 
 
@@ -502,20 +503,49 @@ def find(bam_file, opr_file) -> None:
 
 
 
+def read_seq_file(seq_file):
+    lines = []
+    if seq_file.endswith('gz'):
+        with gzip.open(seq_file, 'rt') as handle:
+            for line in handle:
+                lines.append(line.strip())
+                if len(lines) == 1000:
+                    break
+    modulo = 2
+    if lines[0].startswith('@'):
+        modulo = 4
+    seq_headers = []
+    for cnt, line in enumerate(lines):
+        if cnt % modulo == 0:
+            seq_headers.append(line.split()[0])
+    return seq_headers
+
+def check_sequences(r1_file, r2_file):
+    if r1_file == r2_file:
+        logging.error(f'Input read files can not be the same file. Quitting')
+        shutdown(1)
+
+    seq_headers_r1 = read_seq_file(r1_file)
+    seq_headers_r2 = read_seq_file(r2_file)
+    for h1, h2 in zip(seq_headers_r1, seq_headers_r2):
+        if h1 != h2:
+            logging.error(f'Names of input reads do not match. ({h1} != {h2}). Check if read files belong together. Quitting')
+            shutdown(1)
+
 
 def oprs():
 
-    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', prog='mvirs oprs')
-    parser.add_argument('i1', action='store', help='Forward reads file')
-    parser.add_argument('i2', action='store', help='Reverse reads file')
-    parser.add_argument('r', action='store', help='BWA reference')
-    parser.add_argument('b', action='store', help='Output bam file')
-    parser.add_argument('o', action='store',help='Output OPR file')
+    parser = argparse.ArgumentParser(description='Align paired reads against a reference database and find outward orientated paired reads (OPRs).', prog='mvirs oprs')
+    parser.add_argument('i1', action='store', help='Forward reads file. FastQ or FastA files supported. Input can be gzipped')
+    parser.add_argument('i2', action='store', help='Reverse reads file. FastQ or FastA files supported. Input can be gzipped')
+    parser.add_argument('r', action='store', help='BWA reference. Has to be created upfront using the mvirs oprs command.')
+    parser.add_argument('b', action='store', help='Output BAM file. File with all filtered alignments created by aligning forward and reverse reads against the reference database.')
+    parser.add_argument('o', action='store',help='Output OPR file. File with all OPRs and IPRs found in the alignment file.')
     parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
+
     try:
         args = parser.parse_args(sys.argv[2:])
     except:
-        #parser.print_help()
         shutdown(1)
 
 
@@ -534,6 +564,26 @@ def oprs():
 
     threads = args.threads
 
+    if not pathlib.Path(forward_read_file).exists() or not pathlib.Path(forward_read_file).is_file():
+        logging.error(f'The forward reads file does not exist: {forward_read_file}. Quitting')
+        shutdown(1)
+    if not pathlib.Path(reversed_read_file).exists() or not pathlib.Path(reversed_read_file).is_file():
+        logging.error(f'The reverse reads file does not exist: {reversed_read_file}. Quitting')
+        shutdown(1)
+
+    # check the names of sequences match
+
+    required_index_files = [bwa_ref_name + suffix for suffix in ['.bwt', '.pac', '.ann', '.amb', '.sa']]
+    is_reference_missing = False
+    for rif in required_index_files:
+        if not pathlib.Path(rif).exists() or not pathlib.Path(rif).is_file():
+            is_reference_missing = True
+    if is_reference_missing:
+        logging.error(f'The bwa index files are missing. Please rerun mvirs index. Quitting')
+
+    check_sequences(forward_read_file, reversed_read_file)
+
+
     if threads <= 0:
         raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
         shutdown(1)
@@ -544,6 +594,31 @@ def oprs():
     find(out_bam_file, opr_file)
 
 
+def index():
+    parser = argparse.ArgumentParser(description='Generates the BWA index that is required for the oprs command.', prog='mvirs index')
+    parser.add_argument('r', action='store', help='Input FastA or FastQ file for index building. Gzipped input allowed.')
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        shutdown(1)
+    seq_file = args.r
+    if not pathlib.Path(seq_file).exists() or not pathlib.Path(seq_file).is_file():
+        logging.error(f'The input file for bwa index building does not exist: {seq_file}. Quitting')
+        shutdown(1)
+    logging.info(f'Start building bwa index on {seq_file}')
+    command = f'bwa index {seq_file}'
+
+    try:
+        returncode: int = subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e)
+    if returncode != 0:
+        raise(Exception(f'Command: {command} failed with return code {returncode}'))
+        shutdown(1)
+    logging.info(f'Successfully built index on {seq_file}')
+    shutdown(0)
+
+
 def main():
     startup()
 
@@ -551,21 +626,20 @@ def main():
         description='Bioinformatic toolkit for finding prophages in sequencing data', usage='''mvirs <command> [<args>]
 
     Command options
-        oprs    align reads and find OPRs
+        oprs    align reads to a reference and report outward orientated alignments (OPRs)
+        index   index the reference database using bwa
     ''')
-    parser.add_argument('command', help='Subcommand to run: oprs')
+    parser.add_argument('command', help='Subcommand to run: oprs | index')
 
     args = parser.parse_args(sys.argv[1:2])
 
-    #if args.command == 'align':
-    #    align()
-    #elif args.command == 'find':
-    #    find()
     if args.command == 'oprs':
         oprs()
+    if args.command == 'index':
+        index()
     else:
         print('Unrecognized command')
-        parser.print_help()
+        parser.print_usage()
         shutdown(1)
     shutdown(0)
 
