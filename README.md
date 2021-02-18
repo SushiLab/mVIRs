@@ -1,5 +1,6 @@
+<div align="center">
 ## A bioinformatic approach to locate inducible prophages using NGS data
-
+</div>
 
 <p align="center">
 <img src="pics/mVIRs.png" width="500"  />
