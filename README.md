@@ -27,7 +27,7 @@ The tools is written in `python` and has some dependencies:
 
 ### Installation using conda
 
-The easiest method to install mVIRs is to use the conda package manager which will automatically set up an environment with the dependencies in the correct versions.
+The easiest way to install mVIRs is to use the conda package manager, which will automatically set up an environment with the correct versions of the dependencies.
 
 ```bash
 # Install dependencies
