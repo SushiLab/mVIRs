@@ -1,5 +1,5 @@
 <div align="center">
-## A bioinformatic approach to locate inducible prophages using NGS data
+	## A bioinformatic approach to locate inducible prophages using NGS data
 </div>
 
 <p align="center">
