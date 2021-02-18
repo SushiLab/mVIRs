@@ -13,10 +13,6 @@ The tool was designed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Suna
 
 If you are using mVIRs, please cite:
 > [**High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains.** Zünd M, Ruscheweyh HJ, Field CM, Meyer N, Cuenca M, Hoces D, Hardt WD, Sunagawa S., *Microbiome*, 2021.](https://doi.org/10.1186/s40168-021-01033-w)
-> 
-> [  Mirjam Zünd, Hans-Joachim Ruscheweyh, Christopher M. Field, Natalie Meyer, Miguelangel Cuenca, Daniel Hoces, Wolf-Dietrich Hardt, Shinichi Sunagawa.
-> **High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains**
-, *Microbiome*, 2021.] (https://doi.org/10.1186/s40168-021-01033-w)
 
 Analyses in the publication were executed using version 1.0.
 
