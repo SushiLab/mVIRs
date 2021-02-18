@@ -17,15 +17,15 @@ Questions/Comments? Write a github issue.
 
 ## Installation
 
-The tools is written in `python` and requires some dependencies installed upfront:
+The tools is written in `python` and has some dependencies:
 
 - `Python>=3.6.1`
 	- `pysam>=0.15.2`
-- [BWA](https://github.com/lh3/bwa) (tested: bwa=v0.7.17-r1188)
-- `samtools=1.9`
+- [BWA](https://github.com/lh3/bwa) (tested: v0.7.17-r1188)
+- [samtools](https://github.com/samtools/samtools) (tested: v1.9)
 
 
-### Installation using Conda
+### Installation using conda
 
 The easiest method to install mvirs is to use the conda package manager which will automatically set up an environment with the dependencies in the correct versions.
 
