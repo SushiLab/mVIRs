@@ -4,7 +4,7 @@
 <img src="pics/mVIRs.png" width="500"  />
 </p>
 
-mVIRs is a tool that locates integration sites of inducible prophages in bacterial genomes. It extracts information on (i) the orientation and (ii) location of (soft/hard)clipped paired-end Illumina reads aligned to lysogenic host genome sequences to predict DNA segments that exist in circularized form. These segments are length-filtered to identify putative prophage candidates, which can be classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter.
+mVIRs is a tool that locates integration sites of inducible prophages in bacterial genomes. It extracts information on (i) the alignment orientation of paired-end Illumina reads mapped to lysogenic host genome sequences and (ii) locates partially aligned (soft/hard clipped) reads to identify DNA segments that are predicted to exist in circularized form. These segments are length-filtered to identify putative prophage candidates, which can be classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter.
 
 The tool was designed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Sunagawa and is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html). 
 
