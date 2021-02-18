@@ -64,7 +64,7 @@ optional arguments:
 ```
 
 
-### Manual Installation
+### Manual installation
 
 Manual installation is possible but not recommended. Install via pip after installation of dependencies:
 
@@ -161,8 +161,6 @@ $ mvirs oprs r1.fq.gz r2.fq.gz reference.fasta output.bam output.oprs
 ```
 
 
-
-
 ## IPRs, OPRs and SAME
 
 
@@ -206,7 +204,7 @@ The algorithm works the following:
 
 
 
-## The Output File
+## The Output file
 
 
 The output file from the `mvirs oprs` script has the following columns:
