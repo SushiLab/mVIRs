@@ -8,7 +8,7 @@ mVIRs is a tool that locates integration sites of inducible prophages in bacteri
 
 The tool was designed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Sunagawa and is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html). 
 
-If you are using mVIRs, please cite:
+If you use mVIRs, please cite:
 > [Zünd M, Ruscheweyh HJ, Field CM, Meyer N, Cuenca M, Hoces D, Hardt WD, Sunagawa S. **High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains.** *Microbiome*, 2021.](https://doi.org/10.1186/s40168-021-01033-w)
 
 Analyses in the publication were executed using version 1.0.
