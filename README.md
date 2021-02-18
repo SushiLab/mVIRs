@@ -21,7 +21,7 @@ The tools is written in `python` and requires some dependencies installed upfron
 
 - `Python>=3.6.1`
 	- `pysam>=0.15.2`
-- `bwa=v0.7.17-r1188`
+- [BWA](https://github.com/lh3/bwa) (tested: bwa=v0.7.17-r1188)
 - `samtools=1.9`
 
 
