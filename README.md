@@ -65,7 +65,7 @@ This step takes 2 FastQ files and a reference genome as bwa index as input, perf
 
 ```
 
-usage: mvirs oprs [-h] [-t THREADS] i1 i2 r b o
+usage: mvirs oprs [-h] [-t THREADS] i1 i2 r b o c f
 
 Align reads against a reference and find OPRs and IPRs.
 
@@ -75,6 +75,8 @@ positional arguments:
   r           BWA reference
   b           Output bam file
   o           Output OPR file
+  c           Output Clipped file   
+  f           Output Fasta file   
 
 optional arguments:
   -h, --help  show this help message and exit
