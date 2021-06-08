@@ -10,6 +10,8 @@ import subprocess
 import gzip
 
 
+VERSION = '1.1.0'
+
 debug = False
 
 PYSAM_BAM_CSOFT_CLIP = 4
@@ -49,22 +51,85 @@ def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
     alignedSegment.set_tag('al', alnlength, 'i')
     return alignedSegment
 
+
+# def align_individual(read_file, orientation, bwa_ref_name, threads, out_bam_file, out_map_file, min_coverage, min_percid, min_alength):
+#
+#
+#     temp_bam_file = out_bam_file + '_temp.bam'
+#     logging.info(f'Executing BWA alignment:')
+#
+#     output_map_file = open(out_map_file, 'w')
+#
+#     command = f'bwa mem -a -t {threads} {bwa_ref_name} {read_file} | samtools view -h -F 4 -'
+#     logging.info(f'\tCommand executed {command}')
+#
+#     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+#     in_bam_file_handle = pysam.AlignmentFile(process.stdout, 'rb')
+#     temp_bam_file_handle = pysam.AlignmentFile(temp_bam_file, "wb", template=in_bam_file_handle)
+#
+#     for record in in_bam_file_handle:
+#         if record.is_unmapped:
+#             continue
+#         else:
+#             updated_record = add_tags(record)
+#             if updated_record.get_tag('al') >= min_alength and updated_record.get_tag('qc') >= min_coverage and updated_record.get_tag('id') >= min_percid:
+#
+#
+#                 # START CHANGE
+#                 qname: str = updated_record.qname
+#                 ascore: int = updated_record.get_tag('AS')
+#                 reverse: bool = True if updated_record.is_reverse else False
+#                 refname: str = updated_record.reference_name
+#                 refstart: int = updated_record.reference_start
+#                 refend: int = updated_record.reference_end
+#                 # blocks: list = updated_record.get_blocks()
+#                 # cigartuples: list = updated_record.cigartuples
+#                 alignment_length: int = updated_record.get_tag('al')
+#                 alignment_qcov: float = updated_record.get_tag('qc')
+#                 alignment_id: float = updated_record.get_tag('id')
+#                 output_map_file.write(f'{qname}\t{reverse}\t{refname}\t{refstart}\t{refend}\t{ascore}\t{alignment_length}\t{alignment_qcov}\t{alignment_id}\n')
+#                 # END CHANGE
+#                 record.qname = ''.join([record.qname, '/R', orientation])
+#                 temp_bam_file_handle.write(record)
+#
+#     process.stdout.close()
+#     return_code = process.wait()
+#     if return_code != 0:
+#         logging.error(f'BWA command failed with return code {return_code}')
+#         shutdown(1)
+#
+#     in_bam_file_handle.close()
+#     temp_bam_file_handle.close()
+#     output_map_file.close()
+#
+#
+#     logging.info(f'Executing samtools sort:')
+#     command = f'samtools sort -n -m 4G -@ {threads} -o {out_bam_file} {temp_bam_file}'
+#     logging.info(f'\tCommand executed {command}')
+#     try:
+#         returncode: int = subprocess.check_call(command, shell=True)
+#     except subprocess.CalledProcessError as e:
+#         raise Exception(e)
+#     if returncode != 0:
+#         raise(Exception(f'Command: {command} failed with return code {returncode}'))
+#         shutdown(1)
+#
+#     pathlib.Path(temp_bam_file).unlink()
+
+
+
 def align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, min_coverage, min_percid, min_alength):
     """
     Takes two paired end fastq/fasta files and aligns them against a reference genome and reports sorted and filtered alignments.
-
     Prerequisites:
     1. R1 and R2 reads files need to have the same read names for the same insert. This can be problematic with data downloaded from SRA
     2. The bwa needs to be contructed beforehands. E.g. You want to align against the reference genome.fasta. Then you need to call "bwa index genome.fasta".
     Then you can provide genome.fasta as parameter for -r
-
     Execution:
-
     1. Align R1/R2 read files against the reference
     2. Filter alignments by 97% identity, read coverage >=80%, alignmentlength >= 45 and remove unmapped alignments
     3. Each readname from R1 file gets an /R1 tag to its readname. /R2 is added for R2 alignments.
     4. This creates a temporary bam file. This bam file is sorted with samtools by name to produce the final bam file.
-
     :return:
     """
 
@@ -134,6 +199,7 @@ def align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_
 
 
 
+
 PAlignment = collections.namedtuple('PAlignment',
                                     'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
 SAMLine = collections.namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
@@ -165,7 +231,7 @@ def _calc_orientation(revr1: bool, revr2: bool, posr1: int, posr2: int) -> str:
     return orientation
 
 
-def _generate_paired_alignments(insert2alignments: Dict[str, Dict[str, List[SAMLine]]],
+def _generate_paired_alignments(insert2alignments,
                                 cutoff_bestscore: float = 0.95) -> Generator[
     Tuple[str, DefaultDict[str, List[PAlignment]]], None, None]:
     """
@@ -176,12 +242,11 @@ def _generate_paired_alignments(insert2alignments: Dict[str, Dict[str, List[SAML
     :param insert2alignments:
     :return:
     """
-
     cnt_singleend: int = 0
     cnt_pairedend: int = 0
     query: str
     alignments: Dict[str, List[SAMLine]]
-    for query, alignments in insert2alignments.items():
+    for query, alignments in insert2alignments:
         if len(alignments) < 2:
             cnt_singleend += 1
             continue
@@ -234,55 +299,94 @@ def _generate_paired_alignments(insert2alignments: Dict[str, Dict[str, List[SAML
             yield (query, scoreinsertsizesortedmatches)
 
 
-def _read_bam_file(bam_file: pathlib.Path, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, toss_singletons: bool = True) -> Dict[str, Dict[str, List[SAMLine]]]:
-    """
-    Reads a bam file into memory and splits by R1/R2/S. Each insert is either singleton or paired.
-    Singletons are removed
-    :param bamfile:
-    :return: Dictionary with inserts and the location where reads align
-    """
-    logging.info('Start reading alignments from file:\t{}'.format(bam_file))
-    bf: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
-    total_alignments_in_insert2alignments: int = 0
-    insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = collections.defaultdict(
-        lambda: collections.defaultdict(list))
-    cnt: int
-    alignment: pysam.AlignedSegment
-    for cnt, alignment in enumerate(bf):
-        if cnt % 100000 == 0:
-            logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
-        qname: str = alignment.qname
-        splits: List[str] = qname.rsplit('/', 1)
-        qname: str = splits[0]
+def insertize_bamfile_by_name(bam_file: pathlib.Path, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, need_extended = True):
+    alignments: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
 
-        if splits[1] == 'S':  # Remove singletons
-            if toss_singletons:
-                continue
+    current_name = None
+    current_insert = collections.defaultdict(list)
+
+
+    for alignment in alignments:
+        data_tmp = alignment.qname.rsplit('/', 1)
+        readname = data_tmp[0]
+        orientation = data_tmp[1]
         ascore: int = alignment.get_tag('AS')
-
-        orientation: str = splits[1]
         reverse: bool = True if alignment.is_reverse else False
         refname: str = alignment.reference_name
         refstart: int = alignment.reference_start
         refend: int = alignment.reference_end
-        blocks: list = alignment.get_blocks()
-        cigartuples: list = alignment.cigartuples
+        blocks = None
+        cigartuples = None
+        if need_extended:
+            blocks: list = alignment.get_blocks()
+            cigartuples: list = alignment.cigartuples
         if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
             continue
-
-
         samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
-        # samline_nope = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=None, blocks=None)
-        # from pympler import asizeof
 
-        insert2alignments[qname][orientation].append(samline)
-        total_alignments_in_insert2alignments += 1
-        if max_sam_lines <= cnt:
-            break
-    logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
+        if not current_name:
+            current_name = readname
+        if readname == current_name:
+            current_insert[orientation].append(samline)
+        else:
+            yield current_name, current_insert
+            current_name = readname
+            current_insert = collections.defaultdict(list)
+            current_insert[orientation].append(samline)
 
-    bf.close()
-    return insert2alignments, total_alignments_in_insert2alignments
+
+
+    if len(current_insert) != 0:
+        yield current_name, current_insert
+
+
+# def _read_bam_file_generator(bam_file: pathlib.Path, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, toss_singletons: bool = True) -> Dict[str, Dict[str, List[SAMLine]]]:
+#     """
+#     Reads a bam file into memory and splits by R1/R2/S. Each insert is either singleton or paired.
+#     Singletons are removed
+#     :param bamfile:
+#     :return: Dictionary with inserts and the location where reads align
+#     """
+#     logging.info('Start reading alignments from file:\t{}'.format(bam_file))
+#     bf: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
+#     total_alignments_in_insert2alignments: int = 0
+#     insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = collections.defaultdict(
+#         lambda: collections.defaultdict(list))
+#     cnt: int
+#     alignment: pysam.AlignedSegment
+#     for cnt, alignment in enumerate(bf):
+#         if cnt % 100000 == 0:
+#             logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
+#         qname: str = alignment.qname
+#         splits: List[str] = qname.rsplit('/', 1)
+#         qname: str = splits[0]
+#
+#         if splits[1] == 'S':  # Remove singletons
+#             if toss_singletons:
+#                 continue
+#         ascore: int = alignment.get_tag('AS')
+#
+#         orientation: str = splits[1]
+#         reverse: bool = True if alignment.is_reverse else False
+#         refname: str = alignment.reference_name
+#         refstart: int = alignment.reference_start
+#         refend: int = alignment.reference_end
+#         blocks: list = alignment.get_blocks()
+#         cigartuples: list = alignment.cigartuples
+#         if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
+#             continue
+#
+#
+#         samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
+#
+#         insert2alignments[qname][orientation].append(samline)
+#         total_alignments_in_insert2alignments += 1
+#         if max_sam_lines <= cnt:
+#             break
+#     logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
+#
+#     bf.close()
+#     return insert2alignments, total_alignments_in_insert2alignments
 
 
 def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]) -> Tuple[int, int, int]:
@@ -294,11 +398,15 @@ def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]
 
     cnter: Counter = collections.Counter()
     insertsizes: List[int] = []
+    import pprint
 
     alignments: List[PAlignment]
     for (_, alignments) in _generate_paired_alignments(insert2alignments):
+
         if len(alignments) == 1 and alignments[0].orientation == 'PAIREDEND':
             insertsizes.append(alignments[0].iss)
+            if len(insertsizes) > 20000:
+                break
 
     so: List[int] = insertsizes
     minvaltmp: int = -1
@@ -449,7 +557,7 @@ def find_clipped_reads(bam_file, clipped_file) -> None:
 
     # START DEBUG PARAMETERS
     if debug:
-        max_sam_lines = sys.maxsize
+        max_sam_lines = 10000
     else:
         max_sam_lines = sys.maxsize
 
@@ -458,19 +566,19 @@ def find_clipped_reads(bam_file, clipped_file) -> None:
     min_coverage = 0.0
     min_alength = 0
     toss_singletons = False
-    insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = {}
-    insert2alignments, total_alignments = _read_bam_file(bam_file, max_sam_lines, min_coverage, min_alength, toss_singletons)
+
+    insert2alignments_generator = insertize_bamfile_by_name(bam_file, max_sam_lines, min_coverage, min_alength, need_extended=True)
     alignments_seen: int = 0
     alignments_softclipped: int = 0
     alignments_hardclipped: int = 0
 
     clipped_reads = collections.defaultdict(list)
-    for insert, ori_2_alignments in insert2alignments.items():
+    for insert, ori_2_alignments in insert2alignments_generator:
         for ori, alignments in ori_2_alignments.items():
             for alignment in alignments:
                 alignments_seen += 1
                 if alignments_seen % 500000 == 0:
-                    logging.info(f'{alignments_seen}/{total_alignments} alignments processed. {alignments_softclipped} alignments with softclips. {alignments_hardclipped} alignments with hardclips.')
+                    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
                 if len(alignment.cigartuples) > 1:
                     softclipped: bool = True if len(set(filter(lambda cg: cg == PYSAM_BAM_CSOFT_CLIP, map(lambda cigar: cigar[0], alignment.cigartuples)))) == 1 else False
                     hardclipped: bool = True if len(set(filter(lambda cg: cg == PYSAM_BAM_CHARD_CLIP,map(lambda cigar: cigar[0],alignment.cigartuples)))) == 1 else False
@@ -520,7 +628,7 @@ def find_clipped_reads(bam_file, clipped_file) -> None:
                             startpos = alignment.blocks[-1][1]
                         clipped_reads[(insert, ori)].append(('H', direction, startpos, alignment.ref))
 
-    logging.info(f'{alignments_seen}/{total_alignments} alignments processed. {alignments_softclipped} alignments with softclips. {alignments_hardclipped} alignments with hardclips.')
+    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
     logging.info(f'Keeping only paired soft/hard-clips and writing unfiltered soft and filtered hard-clips to {clipped_file}.')
     out_file = open(clipped_file, 'w')
 
@@ -559,12 +667,12 @@ def find_clipped_reads(bam_file, clipped_file) -> None:
 
 
     out_file.close()
-    logging.info(f'Wrote {softclips_written} soft and {hardclips_written} hard-clips.')
+    logging.info(f'Wrote {format(softclips_written, ",d")} soft and {format(hardclips_written, ",d")} hard-clips.')
 
 
 
 
-def find_oprs(bam_file, opr_file, min_coverage, min_alength) -> None:
+def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
     """
     Find OPRs in aligned inserts. This includes a couple steps:
 
@@ -590,20 +698,20 @@ def find_oprs(bam_file, opr_file, min_coverage, min_alength) -> None:
     """
 
     logging.info('Start OPR finding step')
-    logging.info('Input BAM File:\t{}'.format(bam_file))
+    logging.info('Input BAM File:\t{}'.format(out_bam_file))
     logging.info('Output OPR File:\t{}'.format(opr_file))
 
 
     # START DEBUG PARAMETERS
     if debug:
-        max_sam_lines = sys.maxsize
+        max_sam_lines = 10000
     else:
         max_sam_lines = sys.maxsize
     # END DEBUG PARAMETERS
-    insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = {}
-    insert2alignments, _ = _read_bam_file(bam_file, max_sam_lines, min_coverage, min_alength)
+
+    insert2alignments = None
     logging.info('Start estimating insert size from paired end alignments.')
-    minreasonable_insertsize, maxreasonable_insertsize, estimated_insertsize = _estimate_insert_size(insert2alignments)
+    minreasonable_insertsize, maxreasonable_insertsize, estimated_insertsize = _estimate_insert_size(insertize_bamfile_by_name(out_bam_file, max_sam_lines, min_coverage, min_alength, need_extended=False))
     logging.info('Finished estimating insert size from paired end alignments.')
     logging.info('Min reasonable insert size:\t{}'.format(minreasonable_insertsize))
     logging.info('Max reasonable insert size:\t{}'.format(maxreasonable_insertsize))
@@ -621,11 +729,11 @@ def find_oprs(bam_file, opr_file, min_coverage, min_alength) -> None:
 
         template: str = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
 
-
+        insert2alignments_gen = insertize_bamfile_by_name(out_bam_file, max_sam_lines, min_coverage, min_alength, need_extended=False)
         logging.info('Start screening for OPRs and Paired-End inserts with unreasonable insert size.')
         alncnt = 0
         for alncnt, (query, alignments, found) in enumerate(
-                _calc_primary_paired_alignment(insert2alignments, estimated_insertsize, minreasonable_insertsize,
+                _calc_primary_paired_alignment(insert2alignments_gen, estimated_insertsize, minreasonable_insertsize,
                                                maxreasonable_insertsize)):
             if found:
                 for cnt, alignment in enumerate(alignments):
@@ -642,10 +750,9 @@ def find_oprs(bam_file, opr_file, min_coverage, min_alength) -> None:
             else:  # undefined
                 continue
 
-            if alncnt % 100000 == 0:
-                logging.info('Paired inserts processed:\t{} / {}'.format(format(alncnt, ',d'), format(len(insert2alignments), ',d')))
-        logging.info('Paired inserts processed:\t{} / {}'.format(format(alncnt, ',d'), format(len(insert2alignments), ',d')))
-        logging.info('Singleton inserts tossed:\t{} / {}'.format(format(len(insert2alignments) - alncnt, ',d'), format(len(insert2alignments), ',d')))
+            if alncnt % 500000 == 0:
+                logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
+        logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
         logging.info('Finished screening for OPRs and Paired-End inserts with unreasonable insert size.')
 
 
@@ -663,6 +770,8 @@ def load_fasta(sequence_file):
     current_header = None
     for line in handle:
         line = line.strip().split()[0]
+        if len(line) == 0:
+            continue
         if line.startswith('>'):
             line = line[1:]
             current_header = line
@@ -877,40 +986,95 @@ def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_f
 
 
 
+def read_seq_file(seq_file):
+    lines = []
+    if seq_file.endswith('gz'):
+        with gzip.open(seq_file, 'rt') as handle:
+            for line in handle:
+                lines.append(line.strip())
+                if len(lines) == 1000:
+                    break
+    else:
+        with open(seq_file) as handle:
+            for line in handle:
+                lines.append(line.strip())
+                if len(lines) == 1000:
+                    break
+
+    modulo = 2
+    if lines[0].startswith('@'):
+        modulo = 4
+    seq_headers = []
+    for cnt, line in enumerate(lines):
+        if cnt % modulo == 0:
+            seq_headers.append(line.split()[0])
+    return seq_headers
+
+def check_sequences(r1_file, r2_file):
+    if r1_file == r2_file:
+        logging.error(f'Input read files can not be the same file. Quitting')
+        shutdown(1)
+
+    seq_headers_r1 = read_seq_file(r1_file)
+    seq_headers_r2 = read_seq_file(r2_file)
+    for h1, h2 in zip(seq_headers_r1, seq_headers_r2):
+        if h1 != h2:
+            logging.error(f'Names of input reads do not match. ({h1} != {h2}). Check if read files belong together. Quitting')
+            shutdown(1)
 
 
 
-
-
+class CapitalisedHelpFormatter(argparse.HelpFormatter):
+    def add_usage(self, usage, actions, groups, prefix=None):
+        if prefix is None:
+            prefix = ''
+        return super(CapitalisedHelpFormatter, self).add_usage(usage, actions, groups, prefix)
 
 
 def oprs():
 
-    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', prog='mvirs oprs')
-    parser.add_argument('i1', action='store', help='Forward reads file')
-    parser.add_argument('i2', action='store', help='Reverse reads file')
-    parser.add_argument('r', action='store', help='BWA reference')
-    parser.add_argument('b', action='store', help='Output bam file')
-    parser.add_argument('o', action='store',help='Output OPR file')
-    parser.add_argument('c', action='store', help='Output Clipped file')
-    parser.add_argument('f', action='store', help='Output Fasta file')
+    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', usage=f'''
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: {VERSION}
+Reference: Zuend, Ruscheweyh, et al. 
+High throughput sequencing provides exact genomic locations of inducible 
+prophages and accurate phage-to-host ratios in gut microbial strains. 
+Microbiome (2021). doi:10.1186/s40168-021-01033-w    
+
+Usage: mvirs oprs [options]
+
+    Input:
+        -f  FILE   Forward reads file. Can be gzipped. [Required]
+        -r  FILE   Reverse reads file. Can be gzipped. [Required]
+        -db FILE   BWA reference. Has to be created upfront. [Required]
+    
+    Output:
+        -o  PATH   Prefix for output file. [Required]
+    
+    Options:
+        -t  INT    Number of threads. [1]         
+    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
+    parser.add_argument('-f', action='store', help='Forward reads file. Can be gzipped', required=True, dest='forward')
+    parser.add_argument('-r', action='store', help='Reverse reads file. Can be gzipped', required=True, dest='reverse')
+    parser.add_argument('-db', action='store', help='BWA reference. Has to be created upfront', required=True, dest='db')
+    parser.add_argument('-o', action='store', help='Output prefix', required=True, dest='output')
     parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
+
     try:
         args = parser.parse_args(sys.argv[2:])
     except:
-        #parser.print_help()
         shutdown(1)
 
 
 
-    forward_read_file = args.i1
-    reversed_read_file = args.i2
+    forward_read_file = args.forward
+    reversed_read_file = args.reverse
 
-    out_bam_file = args.b
-    bwa_ref_name = args.r
-    opr_file = pathlib.Path(args.o)
-    clipped_file = pathlib.Path(args.c)
-    output_fasta_file = pathlib.Path(args.f)
+    out_bam_file = args.output + '.bam'
+    bwa_ref_name = args.db
+    opr_file = pathlib.Path(args.output + '.oprs')
+    clipped_file = pathlib.Path(args.output + '.clipped')
+    output_fasta_file = pathlib.Path(args.output + '.fasta')
 
     min_percid = 0.97
     remove_unmapped = True
@@ -918,21 +1082,82 @@ def oprs():
     min_alength = 45
 
     threads = args.threads
-
-    if threads <= 0:
-        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
-        shutdown(1)
-
     align_minalength = 0
     align_mincoverage = 0.0
 
 
-    align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, align_mincoverage, min_percid, align_minalength)
-    logging.info('\n\n\n\n')
 
-    find_clipped_reads(out_bam_file, clipped_file)
+
+    ### CHECKS START
+    if threads <= 0:
+        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
+        shutdown(1)
+
+
+
+    if not pathlib.Path(forward_read_file).exists() or not pathlib.Path(forward_read_file).is_file():
+        logging.error(f'The forward reads file does not exist: {forward_read_file}. Quitting')
+        shutdown(1)
+    if not pathlib.Path(reversed_read_file).exists() or not pathlib.Path(reversed_read_file).is_file():
+        logging.error(f'The reverse reads file does not exist: {reversed_read_file}. Quitting')
+        shutdown(1)
+
+
+    required_index_files = [bwa_ref_name + suffix for suffix in ['.bwt', '.pac', '.ann', '.amb', '.sa']]
+    is_reference_missing = False
+    for rif in required_index_files:
+        if not pathlib.Path(rif).exists() or not pathlib.Path(rif).is_file():
+            is_reference_missing = True
+    if is_reference_missing:
+        logging.error(f'The bwa index files are missing. Please rerun mvirs index. Quitting')
+        shutdown(1)
+
+    check_sequences(forward_read_file, reversed_read_file)
+
+    ### CHECKS END
+
+
+    align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, align_mincoverage, min_percid, align_minalength)
+    find_clipped_reads(out_bam_file,clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)
     extract_regions(clipped_file, opr_file, bwa_ref_name, output_fasta_file)
+
+
+def index():
+    parser = argparse.ArgumentParser(description='Generates the BWA index that is required for the oprs command.', usage=f'''
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: {VERSION}
+Reference: Zuend, Ruscheweyh, et al. 
+High throughput sequencing provides exact genomic locations of inducible 
+prophages and accurate phage-to-host ratios in gut microbial strains. 
+Microbiome (2021). doi:10.1186/s40168-021-01033-w    
+
+Usage: mvirs index [options]
+
+    Input:
+        -f  FILE   Reference FastA file. Can be gzipped. [Required]
+    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
+    parser.add_argument('-f', action='store', help='Input FastA or FastQ file for index building. Gzipped input allowed.', required=True)
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        shutdown(1)
+    seq_file = args.f
+    if not pathlib.Path(seq_file).exists() or not pathlib.Path(seq_file).is_file():
+        logging.error(f'The input file for bwa index building does not exist: {seq_file}. Quitting')
+        shutdown(1)
+    logging.info(f'Start building bwa index on {seq_file}')
+    command = f'bwa index {seq_file}'
+
+    try:
+        returncode: int = subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e)
+    if returncode != 0:
+        raise(Exception(f'Command: {command} failed with return code {returncode}'))
+        shutdown(1)
+    logging.info(f'Successfully built index on {seq_file}')
+    shutdown(0)
 
 
 
@@ -940,26 +1165,41 @@ def main():
     startup()
 
     parser = argparse.ArgumentParser(
-        description='Bioinformatic toolkit for finding prophages in sequencing data', usage='''mvirs <command> [<args>]
+        description='Bioinformatic toolkit for finding prophages in sequencing data', usage=f'''
+        
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: {VERSION}
+Reference: Zuend, Ruscheweyh, et al. 
+High throughput sequencing provides exact genomic locations of inducible 
+prophages and accurate phage-to-host ratios in gut microbial strains. 
+Microbiome (2021). doi:10.1186/s40168-021-01033-w    
 
-    Command options
-        oprs    align reads and find OPRs
-    ''')
+Usage: mvirs <command> [options]
+Command:
+
+    oprs    align reads against reference and used clipped
+            alignment positions and OPRs to extract potential
+            prophages
+            
+    index   create index files for reference used in the 
+            mvirs oprs routine
+
+    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
+
     parser.add_argument('command', help='Subcommand to run: oprs')
 
     args = parser.parse_args(sys.argv[1:2])
 
-    #if args.command == 'align':
-    #    align()
-    #elif args.command == 'find':
-    #    find()
     if args.command == 'oprs':
         oprs()
+    elif args.command == 'index':
+        index()
     else:
         print('Unrecognized command')
-        parser.print_help()
+        parser.print_usage()
         shutdown(1)
     shutdown(0)
+
 
 
 

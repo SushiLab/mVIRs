@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name = "mVIRs",
-    version = "1.0",
+    version = "1.1.0",
     author = "Hans-Joachim Ruscheweyh",
     author_email = "hansr@ethz.ch",
     description = ("Bioinformatic toolkit for finding prophages in sequencing data"),
