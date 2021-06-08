@@ -11,6 +11,7 @@
 
 # mVIRs: Localisation of inducible prophages using NGS data
 
+- [mVIRs: Localisation of inducible prophages using NGS data](#mvirs--localisation-of-inducible-prophages-using-ngs-data)
 - [Installation](#installation)
   * [Installation using conda](#installation-using-conda)
   * [Manual installation](#manual-installation)
