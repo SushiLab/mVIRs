@@ -27,7 +27,7 @@
     + [Algorithm](#algorithm)
   * [Clipped Alignments](#clipped-alignments)
  
-mVIRs is a tool that locates integration sites of inducible prophages in bacterial genomes. It extracts information on the alignment orientation of paired-end Illumina reads that are mapped to lysogenic host genome sequences to identify DNA segments that are predicted to exist in circularized or concatenated form. These segments can be length-filtered and classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter, to identify putative prophage candidates.
+mVIRs is a tool that locates the integration sites of inducible prophages in bacterial genomes. It extracts information on the alignment orientation of paired-end Illumina reads that are mapped to lysogenic host reference genome. The aim is to identify DNA segments that are predicted to exist in circularized or concatenated form after induction. These segments can be length-filtered and classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter, to identify putative prophage candidates.
 
 The tool was developed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Sunagawa. It is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html). 
 
@@ -141,28 +141,18 @@ mvirs.py: error: the following arguments are required: command
 # Usage
 
 
-The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward orientated paired-end reads and uses soft-clipped alignments (clipped reads) to extract regions from the database that are potential prophages.
+The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward orientated paired-end reads (OPRs) and uses soft-clipped alignments (clipped reads) to extract regions from the database that are potential prophages.
 
 ## INDEX
 
-This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `mvirs` command
+This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `oprs` command
 
 ```
-2021-06-08 11:03:03,559 INFO: Starting mVIRs
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: 1.1.0
-Reference: Zuend, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome (2021). doi:10.1186/s40168-021-01033-w
-
 Usage: mvirs index [options]
 
     Input:
         -f  FILE   Reference FastA file. Can be gzipped. [Required]
 
-mvirs.py: error: the following arguments are required: f
-2021-06-08 11:03:03,561 INFO: Finishing mVIRs
 # The index subcommand can then be executed with the following command:
 
 $ mvirs index -f reference.fasta
@@ -172,38 +162,33 @@ $ mvirs index -f reference.fasta
 ## OPRS
 
 
-This step takes 2 sequence files and a reference database (after running `mvirs index` on it), aligns reads against the database and uses the alignments to extract potentially prophage sequences from the reference using coverage information from OPRS and clipped alignments.
+This step needs two sequence read files and a reference database (produced from `mvirs index`). It aligns the reads against the database and uses the alignments information to extract potential prophage sequences from the reference genome using coverage information from OPRS and Clipped reads.
 
 
 ```
 
 $ mvirs oprs
-2021-06-08 11:09:25,658 INFO: Starting mVIRs
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: 1.1.0
-Reference: Zuend, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome (2021). doi:10.1186/s40168-021-01033-w
 
 Usage: mvirs oprs [options]
 
+Positional arguments: 
     Input:
-        -f  FILE   Forward reads file. Can be gzipped. [Required]
-        -r  FILE   Reverse reads file. Can be gzipped. [Required]
-        -db FILE   BWA reference. Has to be created upfront. [Required]
+        i1  FILE   Forward read file. Can be gzipped. [Required]
+       	i2  FILE   Reverse read file. Can be gzipped. [Required]
+        r   FILE   BWA reference. Has to be created upfront. [Required]    
 
     Output:
-        -o  PATH   Prefix for output file. [Required]
+        b  PATH   Prefix for bam file. [Required]
+	o  PATH   Prefix for OPR output file. [Required]		  
+	c  PATH   Prefix for clipped read output file. [Required]  
+	f  PATH   Prefix for Fasta output file. [Required]     
 
     Options:
-        -t  INT    Number of threads. [1]
-
-mvirs.py: error: the following arguments are required: -f, -r, -db, -o
-2021-06-08 11:09:25,660 INFO: Finishing mVIRs
+        -t  INT    Number of threads. [default 1]    
 
 # Example
-$ mvirs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.output
+$ mvirs oprs - t -i1 reads.1.fq.gz -i2 reads.2.fq.gz -r reference.fasta -o mvirs.output.oprs -c mvirs.output.clipped -f mvirs.output.fasta
+
 
 # Will produce the following files (see below for explanation of the files)
 # mvirs.output.bam --> Alignments
@@ -223,13 +208,14 @@ $ mvirs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.output
 
 ### mvirs.output.oprs 
 
-The `mvirs.output.oprs` file lists the inserts with reads that align with either an unexpected orientation (e.g. OPR) or inserts where paired-end reads align with an insert size that is too far from the expected insert size.
+The `mvirs.output.oprs` file lists the inserts of paired-end reads that align either with an unusual orientation (e.g. OPR or SAME) or have an unexpected large insert size (IPR) when compared to the estimated insert size.
 
-The columns of the file are:
+The columns of the file are:   
 
 - `MIN_REASONABLE_INSERTSIZE`: The low boundary for regular insert sizes
 - `MAX_REASONABLE_INSERTSIZE`: The high boundary for regular insert sizes
-- `INSERTNAME`: The name of the insert
+- `ESTIMATED_INSERTSIZE`: ??
+- `READNAME`: The name of the insert
 - `REFERENCE`: The name of the reference
 - `INSERT_SIZE`: The insert size of this insert
 - `R1_ORIENTATION`: The orientation of the r1 read on the reference
@@ -247,6 +233,7 @@ An example output is below:
 ```
 #MIN_REASONABLE_INSERTSIZE=0
 #MAX_REASONABLE_INSERTSIZE=1628
+#ESTIMATED_INSERTSIZE=
 ```
 | #READNAME                               	| REFERENCE             	| INSERT_SIZE 	| R1_ORIENTATION 	| R2_ORIENTATION 	| BWA_SCORE 	| R1_START 	| R2_START 	| R1_ALNLENGTH 	| R2_ALNLENGTH 	| INSERT_ORIENTATION 	|
 |-----------------------------------------	|-----------------------	|-------------	|----------------	|----------------	|-----------	|----------	|----------	|--------------	|--------------	|--------------------	|
@@ -261,16 +248,16 @@ An example output is below:
 ### mvirs.output.clipped
 
 
-The `mvirs.output.clipped` file contains name, position and orientation of aligned reads that were clipped (An alignment is clipped when not the entire read can be mapped consecutively).
+The `mvirs.output.clipped` file contains name, orientation and position of aligned reads that were clipped (An alignment is clipped when not the entire read can be mapped consecutively).
 
 The columns of the file are:
 
 - `Insert`: Name of the insert
 - `READORIENTATION`: Orientation of thr read (R1 or R2)
 - `HARD/SOFTCLIP`: Reported clip type by BWA (Soft --> longer part of the alignment. Hard --> shorter part of the alignment)
-- `DIRECTION`: Direction of the alignment in respect to the reference
-- `POSITON`: Leftmost aligned based on the reference
-- `SCAFFOLD`: Name of the scaffold/genomic region of the reference
+- `DIRECTION`: Direction of the alignment in respect to the reference sequence
+- `POSITON`: Leftmost aligned based on the reference sequence
+- `SCAFFOLD`: Name of the scaffold/genomic region of the reference sequence
 
 An example output is below:
 
@@ -289,7 +276,7 @@ An example output is below:
 
 ### mvirs.output.fasta
 
-The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, number of supporting OPRS and number of supporting clipped alignments.
+The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, start and end coordinates of potential prophage, number of supporting OPRS and number of supporting clipped alignments.
 
 ```
 >SalmonellaLT2:1213986-1255756	ORPs=3868-HSs=1473
