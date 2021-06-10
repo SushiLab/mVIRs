@@ -47,7 +47,7 @@ Questions/Comments? Write a github issue.
 
 # Installation
 
-The tools is written in `python` and has some dependencies:
+The tools is written in `python` and has the following dependencies:
 
 - `Python>=3.7`
 	- `pysam>=0.15.2`
@@ -57,7 +57,7 @@ The tools is written in `python` and has some dependencies:
 
 ## Installation using conda
 
-The easiest way to install mVIRs is to use the conda package manager, which will automatically set up an environment with the correct versions of the dependencies.
+The easiest way to install mVIRs is to use the conda package manager, which will automatically creat an environment with the correct versions of the dependencies.
 
 ```bash
 # Install dependencies
@@ -141,11 +141,11 @@ mvirs.py: error: the following arguments are required: command
 # Usage
 
 
-The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database and detects so called outward orientated reads and uses soft-clipped alignments to extract regions from the database that are potentially prophages.
+The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward orientated paired-end reads and uses soft-clipped alignments (clipped reads) to extract regions from the database that are potential prophages.
 
 ## INDEX
 
-This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `index` command
+This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `mvirs` command
 
 ```
 2021-06-08 11:03:03,559 INFO: Starting mVIRs
