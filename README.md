@@ -96,7 +96,6 @@ Command:
 
 mvirs.py: error: the following arguments are required: command
   
-
 ```
 
 
@@ -145,7 +144,15 @@ The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` comman
 
 This step takes the reference sequence file as input and builds an `bwa` index using the `bwa index` command. This command has to be executed before running the `oprs` command
 
-```
+```bash
+
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: 1.1.0
+Reference: Zuend, Ruscheweyh, et al.
+High throughput sequencing provides exact genomic locations of inducible
+prophages and accurate phage-to-host ratios in gut microbial strains.
+Microbiome (2021). doi:10.1186/s40168-021-01033-w
+
 Usage: mvirs index [options]
 
     Input:
@@ -163,8 +170,7 @@ $ mvirs index -f reference.fasta
 This step needs two sequence read files and a reference database (produced from `mvirs index`). It aligns the reads against the database and uses the alignments information to extract potential prophage sequences from the reference genome using coverage information from OPRS and Clipped reads.
 
 
-```
-
+```bash
 $ mvirs oprs
 
 Program: mVIRs - Localisation of inducible prophages using NGS data
