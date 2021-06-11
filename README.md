@@ -61,15 +61,12 @@ The easiest way to install mVIRs is to use the conda package manager, which will
 
 ```bash
 # Install dependencies
+$ git clone https://github.com/SushiLab/mVIRs
+$ cd mVIRs   
+
 $ conda env create -f conda_env_mvirs.yaml
 $ conda activate mvirs
 
-$ git clone https://github.com/SushiLab/mVIRs
-$ cd mVIRs
-
-#Installs the package locally
-$ pip install -r requirements.txt -e .
-# Add --user for installation with user permissions only
 
 #Test
 $ mvirs -h
