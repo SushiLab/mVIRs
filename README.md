@@ -115,8 +115,6 @@ $ pip install -r requirements.txt -e .
 #Test
 $ mvirs -h
 
-2021-06-08 11:00:57,878 INFO: Starting mVIRs
-
 Program: mVIRs - Localisation of inducible prophages using NGS data
 Version: 1.1.0
 Reference: Zuend, Ruscheweyh, et al.
@@ -169,25 +167,28 @@ This step needs two sequence read files and a reference database (produced from 
 
 $ mvirs oprs
 
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: 1.1.0
+Reference: Zuend, Ruscheweyh, et al.
+High throughput sequencing provides exact genomic locations of inducible
+prophages and accurate phage-to-host ratios in gut microbial strains.
+Microbiome (2021). doi:10.1186/s40168-021-01033-w
+
 Usage: mvirs oprs [options]
 
-Positional arguments: 
     Input:
-        i1  FILE   Forward read file. Can be gzipped. [Required]
-       	i2  FILE   Reverse read file. Can be gzipped. [Required]
-        r   FILE   BWA reference. Has to be created upfront. [Required]    
+        -f  FILE   Forward reads file. Can be gzipped. [Required]
+        -r  FILE   Reverse reads file. Can be gzipped. [Required]
+        -db FILE   BWA reference. Has to be created upfront. [Required]
 
     Output:
-        b  PATH   Prefix for bam file. [Required]
-	o  PATH   Prefix for OPR output file. [Required]		  
-	c  PATH   Prefix for clipped read output file. [Required]  
-	f  PATH   Prefix for Fasta output file. [Required]     
+        -o  PATH   Prefix for output file. [Required]
 
     Options:
-        -t  INT    Number of threads. [default 1]    
+        -t  INT    Number of threads. [1] 
 
 # Example
-$ mvirs oprs - t -i1 reads.1.fq.gz -i2 reads.2.fq.gz -r reference.fasta -o mvirs.output.oprs -c mvirs.output.clipped -f mvirs.output.fasta
+$ mvirs oprs -i1 reads.1.fq.gz -i2 reads.2.fq.gz -db reference.fasta -o mvirs.output
 
 
 # Will produce the following files (see below for explanation of the files)
