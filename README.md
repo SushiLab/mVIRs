@@ -194,7 +194,7 @@ Usage: mvirs oprs [options]
         -t  INT    Number of threads. [1] 
 
 # Example
-$ mvirs oprs -i1 reads.1.fq.gz -i2 reads.2.fq.gz -db reference.fasta -o mvirs.output
+$ mvirs oprs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.output
 
 
 # Will produce the following files (see below for explanation of the files)
