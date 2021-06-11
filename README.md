@@ -31,15 +31,12 @@ The easiest way to install mVIRs is to use the conda package manager, which will
 
 ```bash
 # Install dependencies
-$ conda env create -f conda_env_mvirs.yaml
-$ conda activate mvirs
-
 $ git clone https://github.com/SushiLab/mVIRs
 $ cd mVIRs
 
-#Installs the package locally
-$ pip install -r requirements.txt -e .
-# Add --user for installation with user permissions only
+$ conda env create -f conda_env_mvirs.yaml
+$ conda activate mvirs
+
 
 #Test
 $ mvirs -h
@@ -187,7 +184,6 @@ R1              -------->
 R2                        -------->
  
 ```
-
 
 This tool reports IPRs with unreasonable insert sizes and OPRs.
 
