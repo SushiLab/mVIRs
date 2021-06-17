@@ -1066,8 +1066,8 @@ Usage: mvirs oprs [options]
     parser.add_argument('-r', action='store', help='Reverse reads file. Can be gzipped', required=True, dest='reverse')
     parser.add_argument('-db', action='store', help='BWA reference. Has to be created upfront', required=True, dest='db')
 
-    parser.add_argument('-ml', action='store', type=int, help='Minimum length to extract. [4\'000]', default=4000, required=False, dest='ml')
-    parser.add_argument('-ML', action='store', type=int, help='Maximum length to extract. [800\'000]', default=800000, required=False, dest='ML')
+    parser.add_argument('-ml', action='store', type=int, help='Minimum length to extract. [4000]', default=4000, required=False, dest='ml')
+    parser.add_argument('-ML', action='store', type=int, help='Maximum length to extract. [800000]', default=800000, required=False, dest='ML')
     parser.add_argument('-m', action='store_true', help='Allow full scaffolds to be reported', required=False, dest='afs')
     parser.add_argument('-o', action='store', help='Output prefix', required=True, dest='output')
     parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
