@@ -1058,8 +1058,8 @@ Usage: mvirs oprs [options]
     
     Options:
         -t  INT    Number of threads. [1]
-        -ml INT    Minimum length to extract. [4'000]
-        -ML INT    Maximum length to extract. [800'000]
+        -ml INT    Minimum length to extract. [4000]
+        -ML INT    Maximum length to extract. [800000]
         -m         Allow full scaffolds to be reported
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
     parser.add_argument('-f', action='store', help='Forward reads file. Can be gzipped', required=True, dest='forward')
