@@ -789,7 +789,7 @@ def load_fasta(sequence_file):
 
 
 
-def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_file):
+def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_file, minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True):
     clipped_reads = collections.defaultdict(list)
     soft_clipped_positions = collections.Counter()
     soft_to_hardclip_pairs = collections.Counter() # (start, stop, scaffold) --> Count
@@ -933,21 +933,25 @@ def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_f
 
 
     logging.info(f'Added OPR information. Now working with {len(opr_supported_start_ends)} start/end combinations.')
-    minsize = 4000
-    maxsize = 500000
+    #minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True
+    minsize = minmvirlength
+    maxsize = maxmvirlength
     minoprcount = 1
     minhscount = 1
     mincombcount = 5
+    
+
 
     # for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),
     #                                                         reverse=True)[:10]:
     #     print((start, end, scaffold, end - start, hs_cnt, opr_cnt))
-
-    logging.info(f'Filtering: 1. by length 4k <= length <= 500k. 2. #OPRs > 0 3 AND #HARD-SOFT > 0 AND #OPRS + #HARD-SOFT > 4. length < 99% of scaffold size.')
+    
+    logging.info(f'Filtering: \n\tby length {minsize} <= length <= {maxsize}. \n\t#OPRs >= {minoprcount}\n\t#HARD-SOFT >= {minhscount}\n\t#OPRS + #HARD-SOFT >= {mincombcount}\n\tAllow full scaffolds: {allow_complete_scaffolds}')
     updated_opr_supported_start_ends = {}
     for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
         # 1:
         length = end - start + 1
+        
         if minsize >= length or length >= maxsize:
             continue
         # 2:
@@ -955,8 +959,9 @@ def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_f
             continue
         # 3:
         scaffold_length = len(reference_header_2_sequence[scaffold])
-        if scaffold_length * 0.99 <  length:
-            continue
+        if not allow_complete_scaffolds:
+            if scaffold_length * 0.99 <  length:
+                continue
         updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
     opr_supported_start_ends = updated_opr_supported_start_ends
     logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
@@ -1052,11 +1057,18 @@ Usage: mvirs oprs [options]
         -o  PATH   Prefix for output file. [Required]
     
     Options:
-        -t  INT    Number of threads. [1]         
+        -t  INT    Number of threads. [1]
+        -ml INT    Minimum length to extract. [4'000]
+        -ML INT    Maximum length to extract. [800'000]
+        -m         Allow full scaffolds to be reported
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
     parser.add_argument('-f', action='store', help='Forward reads file. Can be gzipped', required=True, dest='forward')
     parser.add_argument('-r', action='store', help='Reverse reads file. Can be gzipped', required=True, dest='reverse')
     parser.add_argument('-db', action='store', help='BWA reference. Has to be created upfront', required=True, dest='db')
+
+    parser.add_argument('-ml', action='store', type=int, help='Minimum length to extract. [4\'000]', default=4000, required=False, dest='ml')
+    parser.add_argument('-ML', action='store', type=int, help='Maximum length to extract. [800\'000]', default=800000, required=False, dest='ML')
+    parser.add_argument('-m', action='store_true', help='Allow full scaffolds to be reported', required=False, dest='afs')
     parser.add_argument('-o', action='store', help='Output prefix', required=True, dest='output')
     parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
 
@@ -1075,7 +1087,7 @@ Usage: mvirs oprs [options]
     opr_file = pathlib.Path(args.output + '.oprs')
     clipped_file = pathlib.Path(args.output + '.clipped')
     output_fasta_file = pathlib.Path(args.output + '.fasta')
-
+    
     min_percid = 0.97
     remove_unmapped = True
     min_coverage = 0.8
@@ -1085,10 +1097,20 @@ Usage: mvirs oprs [options]
     align_minalength = 0
     align_mincoverage = 0.0
 
+    minlength_report = args.ml
+    maxlength_report = args.ML
+    allow_fl_report = args.afs
 
 
 
     ### CHECKS START
+    if minlength_report < 0:
+        raise argparse.ArgumentTypeError('-ml has to be >0'.format(minlength_report))
+        shutdown(1)
+
+    if maxlength_report < 0:
+        raise argparse.ArgumentTypeError('-ML has to be >0'.format(maxlength_report))
+        shutdown(1)
     if threads <= 0:
         raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
         shutdown(1)
@@ -1120,7 +1142,7 @@ Usage: mvirs oprs [options]
     align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, align_mincoverage, min_percid, align_minalength)
     find_clipped_reads(out_bam_file,clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)
-    extract_regions(clipped_file, opr_file, bwa_ref_name, output_fasta_file)
+    extract_regions(clipped_file, opr_file, bwa_ref_name, output_fasta_file,minmvirlength=minlength_report, maxmvirlength=maxlength_report, allow_complete_scaffolds=allow_fl_report)
 
 
 def index():
