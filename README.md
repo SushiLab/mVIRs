@@ -65,7 +65,11 @@ $ git clone https://github.com/SushiLab/mVIRs
 $ cd mVIRs   
 
 $ conda env create -f conda_env_mvirs.yaml
-$ conda activate mvirs
+$ conda activate mvirs   
+
+#Installs the mVIRs package 
+$ pip install -r requirements.txt -e .
+# Add --user for installation with user permissions only
 
 
 #Test
@@ -189,6 +193,10 @@ Usage: mvirs oprs [options]
 
     Options:
         -t  INT    Number of threads. [1] 
+	-ml INT    Minimum length to extract. [4000]
+        -ML INT    Maximum length to extract. [800000]
+        -m         Allow full scaffolds to be reported 
+	           (When OPRs and Clipped reads are found at start and end of scaffolds)
 
 # Example
 $ mvirs oprs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.output
