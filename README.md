@@ -342,12 +342,47 @@ This tool reports IPRs with unreasonable insert sizes and OPRs.
 
 The algorithm works the following:
 
-1. Reads were grouped to inserts by name. High and low boundaries for insert sizes of properly paired inserts are estimated using the mean insert sizes and +/- 7 StDev of uniquely mapping inward-oriented paired-end reads (IPRs).
-2. OPRs were detected the following: For each insert 
+1. Reads were grouped to inserts by name. Upper and lower maxima for insert sizes of paired inserts are estimated using the mean insert sizes and +/- 7 StDev's of uniquely mapping inward-oriented paired-end reads (IPRs).
+2. OPRs are detected the following: For each insert 
   - Find the best scoring alignment pairs within 3% of the best alignment score.
   - Report the insert as OPR if there is no IPR with reasonable insert size within the 3% cutoff and if the OPR is the best scoring alignment.
 
 ## Clipped Alignments
 
-TODO
+The alignment of a read is clipped if it can't align against the reference in full length. Two reasons why alignments can be clipped are:
 
+1. A circular chromosome is linearized. Reads that align to the beginning of the linearized chromosome (here named reference) will also align at the end. A single full length alignment is not possible. E.g. The first three bases of the read align at the end of the genome. The last 3 bases at the beginning
+
+	```
+	REFERENCE ---------------------------------------
+	READ      ---                                 ---
+	          456                                 123  
+	```
+		
+	Or assuming a phage is integrated in the chromosome but the read comes from a the same, but circularized phage.  
+ 
+	```
+	# Phage integrated in reference chromosome denoted as P
+	REFERENCE ----------------PPPPPPPPPPP------------
+	READ                      ---     ---
+	                          456     123
+	```
+	
+
+2. The reference contains an element (e.g an integrated phage) that was not part of the genome from which the read was sequenced. This can happen when genomes from the same bacterial species contain or not contain an integrated phage. E.g here the bases denoted as P are from a phage that is absent in the read. 
+
+	```
+	REFERENCE ----------------PPPPPPPP---------------
+	READ                   ---        ---
+	                       123        456
+	```
+
+Regions where an accumulation of both cases and OPRs are detected are reported as potential phages in the output fasta file.
+
+### Algorithm
+
+The algorithm works the following
+
+1. OPRs have start/end positions but are not precise enough to detect exact excision positions. Clipped alignments are precise but often miss the shorter part of the clipped alignment due to multimappers or minimal alignment length restrictions.
+2. The combination of both, OPRs and clipped alignment detects potentially integrated phages which are then filtered by minimum and maximum length (default: 4k-800k) and by the number of clipped alignments and OPRs (#minOPR=1, #minClipped=1, #min_total=#OPRs + #Clipped >= 5)
+3. The final step filters or keeps regions that span entire scaffolds/genomes. 
