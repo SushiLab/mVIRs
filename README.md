@@ -408,8 +408,10 @@ Regions where an accumulation of both cases and OPRs are detected are reported a
 
 ### Algorithm
 
-The algorithm works the following
+OPRs have start and end positions but are not precise enough to detect exact excision positions. Clipped alignments are precise but often miss part of the alignment due to multimappers or the restriction on minimal alignment length. Therefore a region must have at least 1 OPR and at least 1 clipped alignment to be considered as a potential site for an integrated phage. Further, potential sites must have a sum of 5 or more OPRs and clipped alignments total.
 
-1. OPRs have start/end positions but are not precise enough to detect exact excision positions. Clipped alignments are precise but often miss the shorter part of the clipped alignment due to multimappers or minimal alignment length restrictions.
-2. The combination of both, OPRs and clipped alignment detects potentially integrated phages which are then filtered by minimum and maximum length (default: 4k-800k) and by the number of clipped alignments and OPRs (#minOPR=1, #minClipped=1, #min_total=#OPRs + #Clipped >= 5)
-3. The final step filters or keeps regions that span entire scaffolds/genomes. 
+Sites are also filtered by length, with a minimum requirement of 4kb and a maximum of 800kb. These limits can be modified with the -ml (minimum) and -ML (maximum) parameters on the command line.
+
+If the -m flag is set, sites that cover entire scaffolds will be reported, otherwise they will be discounted.
+
+2. Regions that cover an entire
