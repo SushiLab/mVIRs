@@ -413,5 +413,3 @@ OPRs have start and end positions but are not precise enough to detect exact exc
 Sites are also filtered by length, with a minimum requirement of 4kb and a maximum of 800kb. These limits can be modified with the -ml (minimum) and -ML (maximum) parameters on the command line.
 
 If the -m flag is set, sites that cover entire scaffolds will be reported, otherwise they will be discounted.
-
-2. Regions that cover an entire
