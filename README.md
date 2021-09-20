@@ -93,6 +93,8 @@ Command:
 
     index   create index files for reference used in the
             mvirs oprs routine
+            
+    test    run mVIRs for a public dataset
 
 
 mvirs.py: error: the following arguments are required: command
@@ -139,7 +141,7 @@ mvirs.py: error: the following arguments are required: command
 # Usage
 
 
-The `mVIRs` toolkit includes 2 functions, `oprs` and `index`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward orientated paired-end reads (OPRs) and uses soft-clipped alignments (clipped reads) to extract regions from the database that are potential prophages.
+The `mVIRs` toolkit includes 3 functions, `oprs`, `index` and `test`. The `index` commands takes a reference file as input and builds the index that is needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward orientated paired-end reads (OPRs) and uses soft-clipped alignments (clipped reads) to extract regions from the database that are potential prophages. The test function executes `mVIRs` on a test dataset that is downloaded as part of this function.  
 
 ## INDEX
 
@@ -210,7 +212,32 @@ $ mvirs oprs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.outp
 
 ```
 
+## TEST
 
+```bash
+$ mvirs.py test
+
+2021-09-20 08:44:31,283 INFO: Starting mVIRs
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: 1.1.0
+Reference: Zuend, Ruscheweyh, et al.
+High throughput sequencing provides exact genomic locations of inducible
+prophages and accurate phage-to-host ratios in gut microbial strains.
+Microbiome (2021). doi:10.1186/s40168-021-01033-w
+Usage: mvirs test [options]
+
+    Input:
+        -o  PATH   Output folder [Required]
+
+# Example
+$ mvirs test ~/mVIRs_test/
+# Will produce the following files (see below for explanation of the files)
+# ERR4552622_100k_mVIRs.bam --> Alignments
+# ERR4552622_100k_mVIRs.oprs --> The raw OPRS positions
+# ERR4552622_100k_mVIRs.clipped --> The raw clipped alignment positions
+# ERR4552622_100k_mVIRs.fasta --> The potential prophage regions
+
+```
 
 
 
@@ -288,20 +315,20 @@ An example output is below:
 
 ### mvirs.output.fasta
 
-The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, start and end coordinates of potential prophage, number of supporting OPRS and number of supporting clipped alignments.
+The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, start and end coordinates of the potential prophage, number of supporting OPRS, the number of supporting clipped alignments and the fraction of the scaffold that is covered by the extracted region.
 
 ```
->SalmonellaLT2:1213986-1255756	ORPs=3868-HSs=1473
+>SalmonellaLT2:1213986-1255756	ORPs=3868-HSs=1473-SF=0.852597
 ATTCGTAATGCGAAGGTCGTAGGTTCGACTCCTATTATCGGCACCAGTTAAATCAAATACTTAC...
->SalmonellaLT2:1849457-1892188	ORPs=743-HSs=338
+>SalmonellaLT2:1849457-1892188	ORPs=743-HSs=338-SF=0.872212
 TCCTTTCAGTGATTGCATAACCACTTAACATCTTGTTTTATCTAAATAAAATTAAGCATGTTAT...
->SalmonellaLT2:3731214-3764954	ORPs=131-HSs=36
+>SalmonellaLT2:3731214-3764954	ORPs=131-HSs=36-SF=100.000000
 ATGTAGGAATTTCGGACGCGGGTTCAACTCCCGCCAGCTCCACCAAATAAAACAAGGGGTTACG...
->SalmonellaLT2:3615428-3663987	ORPs=13-HSs=9
-ATGTGAGCAATGATGGAGAAATTTCTTATGTTCTTCATAAATATGAATTTTTCAACTCGCTATG...
->SalmonellaLT2:1985065-2030909	ORPs=4-HSs=2
-TTATAAAAATGTAGCGATGCGACTGCTAACCCCTTGAATTTAAGGATTTCTACTGCGCTGCTAC...
 
+# SalmonellaLT2:1213986-1255756 --> Scaffold:START-STOP
+# ORPs=3868 --> Number of OPRs = 3868
+# HSs=1473 --> Number of clipped alignments at the location of the OPR = 1473
+# SF=0.852597 --> 0.85% of the scaffold is covered by the extracted region
 ```
   
 

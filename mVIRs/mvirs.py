@@ -8,6 +8,8 @@ import argparse
 import sys
 import subprocess
 import gzip
+import urllib.request
+import urllib.response
 
 
 VERSION = '1.1.0'
@@ -287,7 +289,7 @@ def _generate_paired_alignments(insert2alignments,
             for score in sorted(matches.keys(), reverse=True):
                 if score < minscore:
                     continue
-                match: List[PAlignment] = matches[score]
+                match = matches[score]
                 tmpmatch: Iterable[PAlignment] = sorted(match, key=lambda x: x.iss)
                 scoreinsertsizesortedmatches = scoreinsertsizesortedmatches + tmpmatch
             samematch: PAlignment
@@ -983,8 +985,11 @@ def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_f
     with open(output_fasta_file, 'w') as outhandle:
         for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
             scaffold_sequence = reference_header_2_sequence[scaffold]
+            scaffold_length = len(scaffold_sequence)
             subsequence = scaffold_sequence[start:end+1]
-            outhandle.write(f'>{scaffold}:{start}-{end}\tORPs={opr_cnt}-HSs={hs_cnt}\n{subsequence}\n')
+            scaffold_coverage = 100.0 * float(len(subsequence))/float(scaffold_length)
+            scaffold_coverage = "{:0.6f}".format(scaffold_coverage)
+            outhandle.write(f'>{scaffold}:{start}-{end}\tOPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage}\n{subsequence}\n')
 
 
 
@@ -1087,19 +1092,23 @@ Usage: mvirs oprs [options]
     opr_file = pathlib.Path(args.output + '.oprs')
     clipped_file = pathlib.Path(args.output + '.clipped')
     output_fasta_file = pathlib.Path(args.output + '.fasta')
-    
+    minlength_report = args.ml
+    maxlength_report = args.ML
+    allow_fl_report = args.afs
+    threads = args.threads
+    _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file, minlength_report, maxlength_report, allow_fl_report, threads)
+
+def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file, minlength_report=4000, maxlength_report=800000, allow_fl_report=True, threads=1):
     min_percid = 0.97
     remove_unmapped = True
     min_coverage = 0.8
     min_alength = 45
 
-    threads = args.threads
+
     align_minalength = 0
     align_mincoverage = 0.0
 
-    minlength_report = args.ml
-    maxlength_report = args.ML
-    allow_fl_report = args.afs
+
 
 
 
@@ -1143,6 +1152,70 @@ Usage: mvirs oprs [options]
     find_clipped_reads(out_bam_file,clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)
     extract_regions(clipped_file, opr_file, bwa_ref_name, output_fasta_file,minmvirlength=minlength_report, maxmvirlength=maxlength_report, allow_complete_scaffolds=allow_fl_report)
+
+
+
+def test():
+    parser = argparse.ArgumentParser(description='Run mVIRs on a public dataset', usage=f'''
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: {VERSION}
+Reference: Zuend, Ruscheweyh, et al. 
+High throughput sequencing provides exact genomic locations of inducible 
+prophages and accurate phage-to-host ratios in gut microbial strains. 
+Microbiome (2021). doi:10.1186/s40168-021-01033-w    
+Usage: mvirs test [options]
+
+    Input:
+        -o  PATH   Output folder [Required]
+    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
+    parser.add_argument('-o', action='store', help='Output folder', required=True)
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        shutdown(1)
+    output_folder = pathlib.Path(args.o)
+    # make output folder
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+    #download reads/ref
+    logging.info('Downloading reference and read files (22MB)')
+    remote_r1_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//ERR4552622_100k_1.fastq.gz'
+    local_r1_file = str(output_folder) + '/ERR4552622_100k_1.fastq.gz'
+    remote_r2_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//ERR4552622_100k_2.fastq.gz'
+    local_r2_file = str(output_folder)+ '/ERR4552622_100k_2.fastq.gz'
+    remote_reference_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//np_salmoLT2.fasta.gz'
+    local_reference_file = str(output_folder) + '/np_salmoLT2.fasta.gz'
+    urllib.request.urlretrieve(remote_r1_file, local_r1_file)
+    urllib.request.urlretrieve(remote_r2_file, local_r2_file)
+    urllib.request.urlretrieve(remote_reference_file, local_reference_file)
+    logging.info('Finished downloading')
+    logging.info('Building mVIRs index')
+    # build index
+    command = f'bwa index {local_reference_file}'
+
+    try:
+        returncode: int = subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e)
+    if returncode != 0:
+        raise(Exception(f'Command: {command} failed with return code {returncode}'))
+        shutdown(1)
+    logging.info(f'Successfully built index on {local_reference_file}')
+    # run mvirs
+    logging.info('Run mVIRs test')
+    forward_read_file = local_r1_file
+    reversed_read_file = local_r2_file
+
+    out_bam_file = str(output_folder) + '/ERR4552622_100k_mVIRs.bam'
+    bwa_ref_name = local_reference_file
+    opr_file = str(output_folder) + '/ERR4552622_100k_mVIRs.oprs'
+    clipped_file = str(output_folder) + '/ERR4552622_100k_mVIRs.clipped'
+    output_fasta_file = str(output_folder) + '/ERR4552622_100k_mVIRs.fasta'
+    _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file)
+
+
+
+
 
 
 def index():
@@ -1205,6 +1278,8 @@ Command:
             
     index   create index files for reference used in the 
             mvirs oprs routine
+            
+    test    run mVIRs for a public dataset
 
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
 
@@ -1216,6 +1291,8 @@ Command:
         oprs()
     elif args.command == 'index':
         index()
+    elif args.command == 'test':
+        test()
     else:
         print('Unrecognized command')
         parser.print_usage()
