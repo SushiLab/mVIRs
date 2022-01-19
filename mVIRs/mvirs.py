@@ -957,7 +957,7 @@ def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_f
         if minsize >= length or length >= maxsize:
             continue
         # 2:
-        if opr_cnt < minoprcount or hs_cnt < minhscount or (opr_cnt + hs_cnt) <= mincombcount:
+        if opr_cnt < minoprcount or hs_cnt < minhscount or (opr_cnt + hs_cnt) < mincombcount:
             continue
         # 3:
         scaffold_length = len(reference_header_2_sequence[scaffold])
