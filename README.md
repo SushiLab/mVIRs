@@ -27,7 +27,7 @@
     + [Algorithm](#algorithm)
   * [Clipped Alignments](#clipped-alignments)
  
-mVIRs is a tool that locates the integration sites of inducible prophages in bacterial genomes. It extracts information on the alignment orientation of paired-end Illumina reads that are mapped to lysogenic host reference genome. The aim is to identify DNA segments that are predicted to exist in circularized or concatenated form after induction. These segments can be length-filtered and classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter, to identify putative prophage candidates.
+mVIRs is a tool that locates the integration sites of inducible prophages in bacterial genomes. It extracts information on the alignment orientation of paired-end Illumina reads that are mapped to a lysogenic host reference genome. The aim is to identify DNA segments that are predicted to exist in circularized or concatenated form after induction. These segments can be length-filtered and classified by prediction tools, such as VirSorter2, VirFinder, VIBRANT or Prophage Hunter, to identify putative prophage candidates.
 
 The tool was developed by Mirjam Zuend, Hans-Joachim Ruscheweyh and Shinichi Sunagawa. It is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html). 
 
@@ -57,7 +57,7 @@ The tools is written in `python` and has the following dependencies:
 
 ## Installation using conda
 
-The easiest way to install mVIRs is to use the conda package manager, which will automatically creat an environment with the correct versions of the dependencies.
+The easiest way to install mVIRs is to use the conda package manager, which will automatically create an environment with the correct versions of the dependencies.
 
 ```bash
 # Install dependencies
@@ -170,7 +170,7 @@ $ mvirs index -f reference.fasta
 ## OPRS
 
 
-This step needs two sequence read files and a reference database (produced from `mvirs index`). It aligns the reads against the database and uses the alignments information to extract potential prophage sequences from the reference genome using coverage information from OPRS and Clipped reads.
+This step needs two paired-end read files, forward and reverse, and a reference database (produced from `mvirs index`). It aligns the reads against the database and uses the alignments information to extract potential prophage sequences from the reference genome using coverage information from OPRS and Clipped reads.
 
 
 ```bash
@@ -206,7 +206,7 @@ $ mvirs oprs -f reads.1.fq.gz -r reads.2.fq.gz -db reference.fasta -o mvirs.outp
 
 # Will produce the following files (see below for explanation of the files)
 # mvirs.output.bam --> Alignments
-# mvirs.output.oprs --> The raw OPRS positions
+# mvirs.output.oprs --> The raw OPR positions
 # mvirs.output.clipped --> The raw clipped alignment positions
 # mvirs.output.fasta --> The potential prophage regions
 
@@ -233,7 +233,7 @@ Usage: mvirs test [options]
 $ mvirs test ~/mVIRs_test/
 # Will produce the following files (see below for explanation of the files)
 # ERR4552622_100k_mVIRs.bam --> Alignments
-# ERR4552622_100k_mVIRs.oprs --> The raw OPRS positions
+# ERR4552622_100k_mVIRs.oprs --> The raw OPR positions
 # ERR4552622_100k_mVIRs.clipped --> The raw clipped alignment positions
 # ERR4552622_100k_mVIRs.fasta --> The potential prophage regions
 
@@ -287,15 +287,15 @@ An example output is below:
 ### mvirs.output.clipped
 
 
-The `mvirs.output.clipped` file contains name, orientation and position of aligned reads that were clipped (An alignment is clipped when not the entire read can be mapped consecutively).
+The `mvirs.output.clipped` file contains name, orientation and position of aligned reads that were clipped (An alignment is clipped when the read can only be partially mapped consecutively).
 
 The columns of the file are:
 
 - `Insert`: Name of the insert
-- `READORIENTATION`: Orientation of thr read (R1 or R2)
+- `READORIENTATION`: Orientation of the read (R1 or R2)
 - `HARD/SOFTCLIP`: Reported clip type by BWA (Soft --> longer part of the alignment. Hard --> shorter part of the alignment)
-- `DIRECTION`: Direction of the alignment in respect to the reference sequence
-- `POSITON`: Leftmost aligned based on the reference sequence
+- `DIRECTION`: Direction of the alignment with respect to the reference sequence
+- `POSITON`: Leftmost alignment position based on the reference sequence
 - `SCAFFOLD`: Name of the scaffold/genomic region of the reference sequence
 
 An example output is below:
@@ -315,7 +315,7 @@ An example output is below:
 
 ### mvirs.output.fasta
 
-The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, start and end coordinates of the potential prophage, number of supporting OPRS, the number of supporting clipped alignments and the fraction of the scaffold that is covered by the extracted region.
+The `mvirs.output.fasta` is a fasta file with the potential prophage regions that were extracted from the reference. The header of the fasta includes information on source scaffold, start and end coordinates of the potential prophage, number of supporting OPRs, the number of supporting clipped alignments and the fraction of the scaffold that is covered by the extracted region.
 
 ```
 >SalmonellaLT2:1213986-1255756	ORPs=3868-HSs=1473-SF=0.852597
@@ -367,18 +367,19 @@ This tool reports IPRs with unreasonable insert sizes and OPRs.
 ### Algorithm
 
 
-The algorithm works the following:
+The algorithm works as follows:
 
-1. Reads were grouped to inserts by name. Upper and lower maxima for insert sizes of paired inserts are estimated using the mean insert sizes and +/- 7 StDev's of uniquely mapping inward-oriented paired-end reads (IPRs).
-2. OPRs are detected the following: For each insert 
+1. Reads are paired according to their name to give inserts.
+2. Upper and lower maxima for reasonable insert size are estimated using the mean insert size plus or minus 7 standard deviations for uniquely mapping inward-oriented paired-end reads (IPRs).
+3. For each insert:
   - Find the best scoring alignment pairs within 3% of the best alignment score.
   - Report the insert as OPR if there is no IPR with reasonable insert size within the 3% cutoff and if the OPR is the best scoring alignment.
 
 ## Clipped Alignments
 
-The alignment of a read is clipped if it can't align against the reference in full length. Two reasons why alignments can be clipped are:
+The alignment of a read is clipped if it can't align against the reference across its full length. Two reasons why alignments can be clipped are:
 
-1. A circular chromosome is linearized. Reads that align to the beginning of the linearized chromosome (here named reference) will also align at the end. A single full length alignment is not possible. E.g. The first three bases of the read align at the end of the genome. The last 3 bases at the beginning
+1. A circular chromosome is linearised. Reads that align to the beginning of the linearised chromosome (here named reference) will also align at the end. A single full length alignment is not possible. E.g. the first three bases of the read align at the end of the genome, the last 3 bases at the beginning:
 
 	```
 	REFERENCE ---------------------------------------
@@ -386,7 +387,7 @@ The alignment of a read is clipped if it can't align against the reference in fu
 	          456                                 123  
 	```
 		
-	Or assuming a phage is integrated in the chromosome but the read comes from a the same, but circularized phage.  
+	Or assuming a phage is integrated in the chromosome but a read comes from a circularized phage identical in sequence:  	
  
 	```
 	# Phage integrated in reference chromosome denoted as P
