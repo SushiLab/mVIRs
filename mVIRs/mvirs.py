@@ -12,7 +12,7 @@ import urllib.request
 import urllib.response
 
 
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 
 debug = False
 
@@ -1046,7 +1046,7 @@ def oprs():
     parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', usage=f'''
 Program: mVIRs - Localisation of inducible prophages using NGS data
 Version: {VERSION}
-Reference: Zuend, Ruscheweyh, et al. 
+Reference: Zünd, Ruscheweyh, et al. 
 High throughput sequencing provides exact genomic locations of inducible 
 prophages and accurate phage-to-host ratios in gut microbial strains. 
 Microbiome (2021). doi:10.1186/s40168-021-01033-w    
@@ -1054,18 +1054,20 @@ Microbiome (2021). doi:10.1186/s40168-021-01033-w
 Usage: mvirs oprs [options]
 
     Input:
-        -f  FILE   Forward reads file. Can be gzipped. [Required]
-        -r  FILE   Reverse reads file. Can be gzipped. [Required]
-        -db FILE   BWA reference. Has to be created upfront. [Required]
+        -f  FILE   Forward reads file. FastA/Q. Can be gzipped. [Required]
+        -r  FILE   Reverse reads file. FastA/Q. Can be gzipped. [Required]
+        -db FILE   Reference database file (prefix) created by mvirs index. [Required]
     
     Output:
         -o  PATH   Prefix for output file. [Required]
     
     Options:
         -t  INT    Number of threads. [1]
-        -ml INT    Minimum length to extract. [4000]
-        -ML INT    Maximum length to extract. [800000]
-        -m         Allow full scaffolds to be reported
+        -ml INT    Minimum sequence length for extraction.. [4000]
+        -ML INT    Maximum sequence length for extraction.. [800000]
+        -m         Allow full contigs/scaffolds/chromosomes to be reported 
+                   (When OPRs and clipped reads are found at the start and 
+                   end of contigs/scaffolds/
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
     parser.add_argument('-f', action='store', help='Forward reads file. Can be gzipped', required=True, dest='forward')
     parser.add_argument('-r', action='store', help='Reverse reads file. Can be gzipped', required=True, dest='reverse')
@@ -1159,7 +1161,7 @@ def test():
     parser = argparse.ArgumentParser(description='Run mVIRs on a public dataset', usage=f'''
 Program: mVIRs - Localisation of inducible prophages using NGS data
 Version: {VERSION}
-Reference: Zuend, Ruscheweyh, et al. 
+Reference: Zünd, Ruscheweyh, et al. 
 High throughput sequencing provides exact genomic locations of inducible 
 prophages and accurate phage-to-host ratios in gut microbial strains. 
 Microbiome (2021). doi:10.1186/s40168-021-01033-w    
@@ -1222,7 +1224,7 @@ def index():
     parser = argparse.ArgumentParser(description='Generates the BWA index that is required for the oprs command.', usage=f'''
 Program: mVIRs - Localisation of inducible prophages using NGS data
 Version: {VERSION}
-Reference: Zuend, Ruscheweyh, et al. 
+Reference: Zünd, Ruscheweyh, et al. 
 High throughput sequencing provides exact genomic locations of inducible 
 prophages and accurate phage-to-host ratios in gut microbial strains. 
 Microbiome (2021). doi:10.1186/s40168-021-01033-w    
@@ -1230,7 +1232,7 @@ Microbiome (2021). doi:10.1186/s40168-021-01033-w
 Usage: mvirs index [options]
 
     Input:
-        -f  FILE   Reference FastA file. Can be gzipped. [Required]
+        -f  FILE   Reference FASTA file. Can be gzipped. [Required]
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
     parser.add_argument('-f', action='store', help='Input FastA or FastQ file for index building. Gzipped input allowed.', required=True)
     try:
@@ -1264,7 +1266,7 @@ def main():
         
 Program: mVIRs - Localisation of inducible prophages using NGS data
 Version: {VERSION}
-Reference: Zuend, Ruscheweyh, et al. 
+Reference: Zünd, Ruscheweyh, et al. 
 High throughput sequencing provides exact genomic locations of inducible 
 prophages and accurate phage-to-host ratios in gut microbial strains. 
 Microbiome (2021). doi:10.1186/s40168-021-01033-w    
@@ -1272,12 +1274,12 @@ Microbiome (2021). doi:10.1186/s40168-021-01033-w
 Usage: mvirs <command> [options]
 Command:
 
+    index   create index files for reference used in the 
+            mvirs oprs routine
+            
     oprs    align reads against reference and used clipped
             alignment positions and OPRs to extract potential
             prophages
-            
-    index   create index files for reference used in the 
-            mvirs oprs routine
             
     test    run mVIRs for a public dataset
 

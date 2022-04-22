@@ -7,7 +7,7 @@ install_requires = ['pysam']
 long_description = read('README.md')
 setup(
     name = "mVIRs",
-    version = "1.1.0",
+    version = "1.1.1",
     author = "Hans-Joachim Ruscheweyh",
     author_email = "hansr@ethz.ch",
     description = ("mVIRs: Localisation of inducible prophages using NGS data"),
@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     keywords = "bioinformatics metagenomics NGS alignment OPRs Prophages",
-    url = "https://github.com/SushiLab/mVIRss",
+    url = "https://github.com/SushiLab/mVIRs",
     packages=['mVIRs'],
     download_url = "https://github.com/SushiLab/mVIRs/archive/refs/tags/1.1.1.tar.gz",
     classifiers=[
