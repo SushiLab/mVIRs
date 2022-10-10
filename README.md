@@ -39,7 +39,7 @@ The easiest way to install **mVIRs** is to use the conda package manager using t
 ```bash
 # Install dependencies
 
-$ conda create -n mvirs python==3.7 pip bwa samtools -c bioconda 
+$ conda create -n mvirs python==3.7 pip bwa samtools pysam -c bioconda 
 $ conda activate mvirs
 $ python -m pip install mvirs
 
