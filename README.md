@@ -110,6 +110,7 @@ Usage: mvirs index [options]
 
     Input:
         -f  FILE   Reference FASTA file. Can be gzipped. [Required]
+        -o  DIR    Output directory. [Optional]
 
 ```
 
