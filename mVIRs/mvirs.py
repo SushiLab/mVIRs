@@ -1,35 +1,25 @@
+import argparse
+import glob
+import logging
 import os
 import pathlib
-import logging
-import argparse
-import sys
 import subprocess
-import glob
+import sys
 import urllib.request
 import urllib.response
 
-from .utils import (
-    check_sequences,
-    align,
-    find_clipped_reads,
-    find_oprs,
-    extract_regions
-)
-
+from .alignment import align
+from .index import index_genome
+from .oprs import find_clipped_reads, find_oprs,  extract_regions
+from .utils import check_sequences, shutdown, startup
 
 VERSION = '1.1.1'
 
 
 def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file, minlength_report=4000, maxlength_report=800000, allow_fl_report=True, threads=1):
-    min_percid = 0.97
-    remove_unmapped = True
     min_coverage = 0.8
     min_alength = 45
-
-
-    align_minalength = 0
-    align_mincoverage = 0.0
-
+    
     ### CHECKS START
     if minlength_report < 0:
         raise argparse.ArgumentTypeError('-ml has to be >0'.format(minlength_report))
@@ -39,7 +29,7 @@ def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_n
         raise argparse.ArgumentTypeError('-ML has to be >0'.format(maxlength_report))
         shutdown(1)
     if threads <= 0:
-        raise argparse.ArgumentTypeError('Number of threads has to be >0'.format(threads))
+        raise argparse.ArgumentTypeError('Number of threads has to be > 0'.format(threads))
         shutdown(1)
 
 
@@ -55,26 +45,48 @@ def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_n
     ### CHECKS END
 
 
-    align(forward_read_file, reversed_read_file, bwa_ref_name, threads, out_bam_file, align_mincoverage, min_percid, align_minalength)
-    find_clipped_reads(out_bam_file,clipped_file)
+    align(forward_read_file, reversed_read_file, bwa_ref_name, out_bam_file, threads)
+    find_clipped_reads(out_bam_file, clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)
     extract_regions(clipped_file, opr_file, bwa_ref_name, output_fasta_file,
                     minmvirlength=minlength_report, maxmvirlength=maxlength_report, allow_complete_scaffolds=allow_fl_report)
-
-def startup():
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
-    logging.info('Starting mVIRs')
-
-
-def shutdown(status=0):
-    logging.info('Finishing mVIRs')
-    sys.exit(status)
 
 class CapitalisedHelpFormatter(argparse.HelpFormatter):
     def add_usage(self, usage, actions, groups, prefix=None):
         if prefix is None:
             prefix = ''
         return super(CapitalisedHelpFormatter, self).add_usage(usage, actions, groups, prefix)
+
+
+def index():
+    parser = argparse.ArgumentParser(description='Generates the BWA index that is required for the oprs command.', usage=f'''
+Program: mVIRs - Localisation of inducible prophages using NGS data
+Version: {VERSION}
+Reference: Zünd, Ruscheweyh, et al. 
+High throughput sequencing provides exact genomic locations of inducible 
+prophages and accurate phage-to-host ratios in gut microbial strains. 
+Microbiome (2021). doi:10.1186/s40168-021-01033-w    
+
+Usage: mvirs index [options]
+
+    Input:
+        -f  FILE   Reference FASTA file. Can be gzipped. [Required]
+        -o  PATH   Output folder [Required]
+    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
+    parser.add_argument('-f', action='store', help='Input FastA or FastQ file for index building. Gzipped input allowed.', required=True)
+    parser.add_argument('-o', action='store', help='Output folder for bwa index files.', required=False)
+    try:
+        args = parser.parse_args(sys.argv[2:])
+    except:
+        shutdown(1)
+    
+    seq_file = args.f
+    if not pathlib.Path(seq_file).exists() or not pathlib.Path(seq_file).is_file():
+        logging.error(f'The input file for bwa index building does not exist: {seq_file}. Quitting')
+        shutdown(1)
+    
+    index_genome(seq_file, args.o)
+
 
 
 def oprs():
@@ -114,7 +126,8 @@ Usage: mvirs oprs [options]
     parser.add_argument('-m', action='store_true', help='Allow full scaffolds to be reported', required=False, dest='afs') 
     parser.add_argument('-o', action='store', help='Output folder', required=True, dest='output')
     parser.add_argument('-t', action='store', dest='threads',help='Number of threads to use. (Default = 1)',type=int, default=1)
-
+    
+    
     try:
         args = parser.parse_args(sys.argv[2:])
     except:
@@ -123,11 +136,7 @@ Usage: mvirs oprs [options]
     forward_read_file = args.forward
     reversed_read_file = args.reverse
 
-    out_bam_file = args.output + '.bam'
     bwa_ref_folder = args.db
-    opr_file = pathlib.Path(args.output + '.oprs')
-    clipped_file = pathlib.Path(args.output + '.clipped')
-    output_fasta_file = pathlib.Path(args.output + '.fasta')
     minlength_report = args.ml
     maxlength_report = args.ML
     allow_fl_report = args.afs
@@ -141,12 +150,19 @@ Usage: mvirs oprs [options]
     for file in files:
        
         if file.endswith(required_index_ext[0]):
-            bwa_ref_name = os.path.join(bwa_ref_folder, file.split("/")[-1].rsplit(".", 1)[0])
+            filename =  file.split("/")[-1].rsplit(".", 1)[0]
+            bwa_ref_name = os.path.join(bwa_ref_folder, filename)
+            
     
-
     if not bwa_ref_name: 
         logging.error(f'Could not find BWA index files in {bwa_ref_folder}. Quitting.')
         shutdown(1)
+    
+    out_file_prefix = os.path.join(args.output, filename)
+    out_bam_file = out_file_prefix + '.bam'
+    opr_file = pathlib.Path(out_file_prefix + '.oprs')
+    clipped_file = pathlib.Path(out_file_prefix + '.clipped')
+    output_fasta_file = pathlib.Path(out_file_prefix + '.fasta')
     
     required_index_files = [bwa_ref_name + suffix for suffix in required_index_ext]
     is_reference_missing = False
@@ -221,51 +237,6 @@ Usage: mvirs test [options]
     clipped_file = str(output_folder) + '/ERR4552622_100k_mVIRs.clipped'
     output_fasta_file = str(output_folder) + '/ERR4552622_100k_mVIRs.fasta'
     _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file)
-
-
-def index():
-    parser = argparse.ArgumentParser(description='Generates the BWA index that is required for the oprs command.', usage=f'''
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: {VERSION}
-Reference: Zünd, Ruscheweyh, et al. 
-High throughput sequencing provides exact genomic locations of inducible 
-prophages and accurate phage-to-host ratios in gut microbial strains. 
-Microbiome (2021). doi:10.1186/s40168-021-01033-w    
-
-Usage: mvirs index [options]
-
-    Input:
-        -f  FILE   Reference FASTA file. Can be gzipped. [Required]
-        -o  PATH   Output folder [Required]
-    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
-    parser.add_argument('-f', action='store', help='Input FastA or FastQ file for index building. Gzipped input allowed.', required=True)
-    parser.add_argument('-o', action='store', help='Output folder for bwa index files.', required=False)
-    try:
-        args = parser.parse_args(sys.argv[2:])
-    except:
-        shutdown(1)
-    seq_file = args.f
-    if not pathlib.Path(seq_file).exists() or not pathlib.Path(seq_file).is_file():
-        logging.error(f'The input file for bwa index building does not exist: {seq_file}. Quitting')
-        shutdown(1)
-    logging.info(f'Start building bwa index on {seq_file}')
-    # make output folder
-    output_folder = pathlib.Path(args.o)
-    output_folder.mkdir(parents=True, exist_ok=True)
-
-    index_path = os.path.abspath(os.path.join(output_folder, seq_file.split("/")[-1]))
-    command = f'bwa index {seq_file} -p {index_path}'
-
-    try:
-        returncode: int = subprocess.check_call(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise Exception(e)
-    if returncode != 0:
-        raise(Exception(f'Command: {command} failed with return code {returncode}'))
-        shutdown(1)
-    logging.info(f'Successfully built index on {seq_file}')
-    shutdown(0)
-
 
 
 def main():
