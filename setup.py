@@ -7,11 +7,13 @@ import os
 SRC_DIR = "mVIRs"
 PACKAGES = [SRC_DIR]
 
-ext_1 = Extension(SRC_DIR + ".oprs_c",
-                  [SRC_DIR + "/oprs_c.pyx"])
+ext_oprs = Extension(SRC_DIR + ".oprs_c",
+                    [SRC_DIR + "/oprs_c.pyx"])
 
+ext_regions = Extension(SRC_DIR + ".extract_regions",
+                       [SRC_DIR + "/extract_regions.pyx"])
 
-EXTENSIONS = [ext_1]
+EXTENSIONS = [ext_oprs, ext_regions]
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()

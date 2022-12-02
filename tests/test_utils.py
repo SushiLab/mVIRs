@@ -1,6 +1,5 @@
 import pytest
 import filecmp
-from pathlib import Path
 
 from mVIRs import (
     find_clipped_reads,
