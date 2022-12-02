@@ -1,10 +1,10 @@
 name: mvirs
 channels:
+  - conda-forge
   - bioconda
   - defaults
-  - conda-forge
 dependencies:
-  - python>=3.7
+  - python>=3.9
   - bwa
-  - samtools
-  - pysam>=0.15.2
+  - samtools>=1.15.1
+  - pysam>=0.19
