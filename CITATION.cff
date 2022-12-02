@@ -1,0 +1,100 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: 'High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains'
+doi: 10.1186/s40168-021-01033-w
+authors:
+  - given-names: Mirjam
+    family-names: Zünd
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+    orcid: https://orcid.org/0000-0003-2443-9328
+  - given-names: Hans-Joachim
+    family-names: Ruscheweyh
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+    orcid: https://orcid.org/0000-0001-7473-6086
+  - given-names: Christopher M.
+    family-names: Field
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+    orcid: https://orcid.org/0000-0002-6434-3745
+  - given-names: Natalie 
+    family-names: Meyer
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+  - given-names: Miguelangel
+    family-names: Cuenca
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich
+    orcid: https://orcid.org/0000-0003-3435-9102
+  - given-names: Daniel 
+    family-names: Hoces
+    orcid: https://orcid.org/0000-0002-1451-5166
+    affiliation: Department of Health Sciences and Technology, Institute of Food, Nutrition and Health, ETH Zürich, Zürich, Switzerland
+  - given-names: Wolf-Dietrich
+    family-names: Hardt
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+    orcid: https://orcid.org/0000-0002-9892-6420
+  - given-names: Sunagawa
+    family-names: Shinichi
+    affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich
+    orcid: https://orcid.org/0000-0003-3065-0314
+
+version: 3.0.3
+date-released: 2022-07-13
+repository-code: https://github.com/motu-tool/mOTUs
+license: GNU General Public License v3.0
+keywords:
+- "Metagenomics"
+- "Microbiome"
+- "Software"
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Mirjam
+      family-names: Zünd
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+      orcid: https://orcid.org/0000-0003-2443-9328
+    - given-names: Hans-Joachim
+      family-names: Ruscheweyh
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+      orcid: https://orcid.org/0000-0001-7473-6086
+    - given-names: Christopher M.
+      family-names: Field
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+      orcid: https://orcid.org/0000-0002-6434-3745
+    - given-names: Natalie 
+      family-names: Meyer
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+    - given-names: Miguelangel
+      family-names: Cuenca
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich
+      orcid: https://orcid.org/0000-0003-3435-9102
+    - given-names: Daniel 
+      family-names: Hoces
+      orcid: https://orcid.org/0000-0002-1451-5166
+      affiliation: Department of Health Sciences and Technology, Institute of Food, Nutrition and Health, ETH Zürich, Zürich, Switzerland
+    - given-names: Wolf-Dietrich
+      family-names: Hardt
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich, Zürich, Switzerland
+      orcid: https://orcid.org/0000-0002-9892-6420
+    - given-names: Sunagawa
+      family-names: Shinichi
+      affiliation: Department of Biology, Institute of Microbiology and Swiss Institute of Bioinformatics, ETH Zürich
+      orcid: https://orcid.org/0000-0003-3065-0314
+  doi: "10.1186/s40168-021-01033-w"
+  journal: "BMC Microbiome"
+  month: 3
+  year: 2021
+  title: "High throughput sequencing provides exact genomic locations of inducible 
+  prophages and accurate phage-to-host ratios in gut microbial strains"
+  abstract: "Temperate phages influence the density, diversity and function 
+  of bacterial populations. Historically, they have been described 
+  as carriers of toxins. More recently, they have also been recognised 
+  as direct modulators of the gut microbiome, and indirectly of 
+  host health and disease. Despite recent advances in studying prophages 
+  using non-targeted sequencing approaches, methodological challenges 
+  in identifying inducible prophages in bacterial genomes and quantifying 
+  their activity have limited our understanding of prophage-host interactions.
+  This study demonstrates that the integration of experimental 
+  induction and bioinformatic analysis presented here is a powerful approach 
+  to accurately locate inducible prophages using high-throughput sequencing 
+  data and to quantify their activity. The ability to generate such quantitative 
+  information will be critical in helping us to gain better insights into 
+  the factors that determine phage activity and how prophage-bacteria 
+  interactions influence our microbiome and impact human health."

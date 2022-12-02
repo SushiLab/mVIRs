@@ -1,11 +1,24 @@
-from setuptools import setup
+from setuptools import setup, Extension
+from Cython.Build import build_ext
+
+
+
 import os
+SRC_DIR = "mVIRs"
+PACKAGES = [SRC_DIR]
+
+ext_1 = Extension(SRC_DIR + ".oprs_c",
+                  [SRC_DIR + "/oprs_c.pyx"])
+
+
+EXTENSIONS = [ext_1]
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 install_requires = ['pysam']
 long_description = read('README.md')
 setup(
+    ext_modules=EXTENSIONS,
     name = "mVIRs",
     version = "1.1.1",
     author = "Hans-Joachim Ruscheweyh",
@@ -31,5 +44,6 @@ setup(
     ],
     entry_points = {
         'console_scripts': ['mvirs=mVIRs.mvirs:main'],
-    }
+    },
+    cmdclass={'build_ext': build_ext}
 )

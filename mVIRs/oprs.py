@@ -1,13 +1,15 @@
 import collections
 import logging
-import pathlib
 import statistics
 import sys
 from typing import DefaultDict, Dict, Generator, Iterable, List, Tuple
 
-import pysam
+from mVIRs import ( 
+    get_read_orientation, 
+    _calc_orientation,
+    insertize_bamfile_by_name
+)
 
-from .utils import get_read_orientation, load_fasta
 
 debug = False
 
@@ -18,31 +20,73 @@ PAlignment = collections.namedtuple('PAlignment',
                                     'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
 SAMLine = collections.namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
 
+# def get_read_orientation(rev: bool) -> str:
+#     """
+#     Helper function to print if an alignments is forward or reverse
+#     :param rev:
+#     :return:
+#     """
+#     if rev:
+#         return 'reverse'
+#     else:
+#         return 'forward'
 
-def _calc_orientation(revr1: bool, revr2: bool, posr1: int, posr2: int) -> str:
-    """
-    Based on orientation of both reads and their alignment start positions, estimate if a read is PE/SAME/OPR
-    :param revr1:
-    :param revr2:
-    :param posr1:
-    :param posr2:
-    :return: PAIREDEND, SAME, OPR
-    """
-    orientation: str = 'PAIREDEND'
-    if revr1 == revr2:
-        orientation = 'SAME'
-        return orientation
-    fwpos: int = 0
-    revpos: int = 0
-    if revr1:
-        revpos = posr1
-        fwpos = posr2
-    else:
-        revpos = posr2
-        fwpos = posr1
-    if revpos < fwpos:
-        orientation = 'OPR'
-    return orientation
+
+# def load_fasta(sequence_file: str) -> Dict[str, str]:
+#     '''
+#     Read a fasta file and put it into a dictionary
+#     :param sequence_file:
+#     :return:
+#     '''
+#     if sequence_file.endswith('.gz'):
+#         handle = gzip.open(sequence_file, 'rt')
+#     else:
+#         handle = open(sequence_file)
+#     sequences = {}
+#     current_header = None
+#     for line in handle:
+#         line = line.strip().split()[0]
+#         if len(line) == 0:
+#             continue
+#         if line.startswith('>'):
+#             line = line[1:]
+#             current_header = line
+#             sequences[current_header] = []
+#         else:
+#             sequences[current_header].append(line)
+
+#     handle.close()
+#     sequences2 = {}
+#     for header, sequence in sequences.items():
+#         tmp_seq = ''.join(sequence)
+#         sequences2[header] = tmp_seq
+#     return sequences2
+
+
+# def _calc_orientation(revr1: bool, revr2: bool, posr1: int, posr2: int) -> str:
+#     """
+#     Based on orientation of both reads and their alignment start positions, estimate if a read is PE/SAME/OPR
+#     :param revr1:
+#     :param revr2:
+#     :param posr1:
+#     :param posr2:
+#     :return: PAIREDEND, SAME, OPR
+#     """
+#     orientation: str = 'PAIREDEND'
+#     if revr1 == revr2:
+#         orientation = 'SAME'
+#         return orientation
+#     fwpos: int = 0
+#     revpos: int = 0
+#     if revr1:
+#         revpos = posr1
+#         fwpos = posr2
+#     else:
+#         revpos = posr2
+#         fwpos = posr1
+#     if revpos < fwpos:
+#         orientation = 'OPR'
+#     return orientation
 
 
 def _generate_paired_alignments(insert2alignments,
@@ -111,94 +155,61 @@ def _generate_paired_alignments(insert2alignments,
             yield (query, scoreinsertsizesortedmatches)
 
 
-def insertize_bamfile_by_name(bam_file: pathlib.Path, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, need_extended = True):
-    alignments: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
-
-    current_name = None
-    current_insert = collections.defaultdict(list)
-
-
-    for alignment in alignments:
-        data_tmp = alignment.qname.rsplit('/', 1)
-        readname = data_tmp[0]
-        orientation = data_tmp[1]
-        ascore: int = alignment.get_tag('AS')
-        reverse: bool = True if alignment.is_reverse else False
-        refname: str = alignment.reference_name
-        refstart: int = alignment.reference_start
-        refend: int = alignment.reference_end
-        blocks = None
-        cigartuples = None
-        if need_extended:
-            blocks: list = alignment.get_blocks()
-            cigartuples: list = alignment.cigartuples
-        if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
-            continue
-        samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
-
-        if not current_name:
-            current_name = readname
-        if readname == current_name:
-            current_insert[orientation].append(samline)
-        else:
-            yield current_name, current_insert
-            current_name = readname
-            current_insert = collections.defaultdict(list)
-            current_insert[orientation].append(samline)
-
-
-
-    if len(current_insert) != 0:
-        yield current_name, current_insert
-
-
-# def _read_bam_file_generator(bam_file: pathlib.Path, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, toss_singletons: bool = True) -> Dict[str, Dict[str, List[SAMLine]]]:
-#     """
-#     Reads a bam file into memory and splits by R1/R2/S. Each insert is either singleton or paired.
-#     Singletons are removed
-#     :param bamfile:
-#     :return: Dictionary with inserts and the location where reads align
-#     """
-#     logging.info('Start reading alignments from file:\t{}'.format(bam_file))
-#     bf: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
-#     total_alignments_in_insert2alignments: int = 0
-#     insert2alignments: Dict[str, Dict[str, List[SAMLine]]] = collections.defaultdict(
-#         lambda: collections.defaultdict(list))
-#     cnt: int
-#     alignment: pysam.AlignedSegment
-#     for cnt, alignment in enumerate(bf):
-#         if cnt % 100000 == 0:
-#             logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
-#         qname: str = alignment.qname
-#         splits: List[str] = qname.rsplit('/', 1)
-#         qname: str = splits[0]
-#
-#         if splits[1] == 'S':  # Remove singletons
-#             if toss_singletons:
-#                 continue
-#         ascore: int = alignment.get_tag('AS')
-#
-#         orientation: str = splits[1]
-#         reverse: bool = True if alignment.is_reverse else False
-#         refname: str = alignment.reference_name
-#         refstart: int = alignment.reference_start
-#         refend: int = alignment.reference_end
+# def extract_alignment_info(alignment: pysam.AlignedSegment, need_extended = True):
+#     SAMLine = collections.namedtuple('SAMLine', 
+#                                      'rev ref rstart rend score cigartuples blocks')
+#     data_tmp = alignment.qname.rsplit('/', 1)
+#     readname = data_tmp[0]
+#     orientation = data_tmp[1]
+#     ascore: int = alignment.get_tag('AS')
+#     reverse: bool = True if alignment.is_reverse else False
+#     refname: str = alignment.reference_name
+#     refstart: int = alignment.reference_start
+#     refend: int = alignment.reference_end
+#     blocks = None
+#     cigartuples = None
+#     if need_extended:
 #         blocks: list = alignment.get_blocks()
 #         cigartuples: list = alignment.cigartuples
+#     samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, 
+#                         rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
+    
+#     return readname, orientation, samline
+
+
+# def insertize_bamfile_by_name(bam_file: pathlib.Path, 
+#                               max_sam_lines: int = -1, 
+#                               min_coverage: float = 0.0, 
+#                               min_alength: int = 0, 
+#                               need_extended = True):
+    
+#     save = pysam.set_verbosity(0)
+#     alignments: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
+#     pysam.set_verbosity(save)
+    
+#     current_name = None
+#     current_insert = collections.defaultdict(list)
+
+#     for alignment in alignments:
 #         if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
 #             continue
-#
-#
-#         samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
-#
-#         insert2alignments[qname][orientation].append(samline)
-#         total_alignments_in_insert2alignments += 1
-#         if max_sam_lines <= cnt:
-#             break
-#     logging.info('Alignments read:\t{}\tInserts found:\t{}'.format(format(cnt, ',d'), format(len(insert2alignments), ',d')))
-#
-#     bf.close()
-#     return insert2alignments, total_alignments_in_insert2alignments
+
+#         readname, orientation, samline = extract_alignment_info(alignment)
+
+#         if not current_name:
+#             current_name = readname
+#         if readname == current_name:
+#             current_insert[orientation].append(samline)
+#         else:
+#             yield current_name, current_insert
+#             current_name = readname
+#             current_insert = collections.defaultdict(list)
+#             current_insert[orientation].append(samline)
+
+
+
+#     if len(current_insert) != 0:
+#         yield current_name, current_insert
 
 
 def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]) -> Tuple[int, int, int]:
@@ -527,203 +538,194 @@ def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
         logging.info('Finished screening for OPRs and Paired-End inserts with unreasonable insert size.')
 
 
+# def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_file, minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True):
+#     clipped_reads = collections.defaultdict(list)
+#     soft_clipped_positions = collections.Counter()
+#     soft_to_hardclip_pairs = collections.Counter() # (start, stop, scaffold) --> Count
+#     oprs_start_to_stop = collections.Counter() # (start, stop, scaffold) --> Count
+#     max_reasonable_insert_size = 0
+#     estimated_insert_size = 0
 
-def extract_regions(clipped_file, opr_file, reference_fasta_file, output_fasta_file, minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True):
-    clipped_reads = collections.defaultdict(list)
-    soft_clipped_positions = collections.Counter()
-    soft_to_hardclip_pairs = collections.Counter() # (start, stop, scaffold) --> Count
-    oprs_start_to_stop = collections.Counter() # (start, stop, scaffold) --> Count
-    max_reasonable_insert_size = 0
-    estimated_insert_size = 0
+#     softclip_range = 20
 
-    softclip_range = 20
+#     # OPRS have an unprecise location of start and end position of virus but start and end are connected
+#     # Soft-Hard pairs are partly unprecise (But more precise then OPRs) but connect start and end
+#     # Soft-clips are precise and plenty but they don't connect start with end
 
+#     # 1. Create a start-end map with abundance from soft-hard pairs
+#     # 2. Add OPRs to the start-end map whereever they potentially fit +- 500 bp
+#     # 3. Get a more precise location with softclips
 
+#     logging.info('Finding potential viruses in the genome')
 
-    # OPRS have an unprecise location of start and end position of virus but start and end are connected
-    # Soft-Hard pairs are partly unprecise (But more precise then OPRs) but connect start and end
-    # Soft-clips are precise and plenty but they don't connect start with end
+#     logging.info('Reading reference fasta')
+#     reference_header_2_sequence = load_fasta(reference_fasta_file)
 
-    # 1. Create a start-end map with abundance from soft-hard pairs
-    # 2. Add OPRs to the start-end map whereever they potentially fit +- 500 bp
-    # 3. Get a more precise location with softclips
+#     with open(clipped_file) as handle:
+#         for line in handle:
+#             if line.startswith('#'):
+#                 continue
+#             splits = line.strip().split()
+#             clipped_reads[(splits[0], splits[1])].append((splits[2], splits[3], int(splits[4]), splits[5]))
+#             if splits[2] == 'S':
+#                 soft_clipped_positions[(int(splits[4]), splits[5])] += 1
 
-    logging.info('Finding potential viruses in the genome')
+#     logging.info(f'Start finding start/end positions of non-continous alignment regions using clipped and OPR alignments')
 
-    logging.info('Reading reference fasta')
-    reference_header_2_sequence = load_fasta(reference_fasta_file)
+#     logging.info(f'Creating initial start/end positions using hard-soft alignment pairs')
+#     logging.info(f'Start denoising {len(soft_clipped_positions)} soft clipped positions from {sum(soft_clipped_positions.values())} reads.')
+#     updated_soft_clipped_positions = collections.Counter()
 
-    with open(clipped_file) as handle:
-        for line in handle:
-            if line.startswith('#'):
-                continue
-            splits = line.strip().split()
-            clipped_reads[(splits[0], splits[1])].append((splits[2], splits[3], int(splits[4]), splits[5]))
-            if splits[2] == 'S':
-                soft_clipped_positions[(int(splits[4]), splits[5])] += 1
+#     for (softclip_position, softclip_scaffold), softclip_count in soft_clipped_positions.most_common():
 
-    logging.info(f'Start finding start/end positions of non-continous alignment regions using clipped and OPR alignments')
-
-    logging.info(f'Creating initial start/end positions using hard-soft alignment pairs')
-    logging.info(f'Start denoising {len(soft_clipped_positions)} soft clipped positions from {sum(soft_clipped_positions.values())} reads.')
-    updated_soft_clipped_positions = collections.Counter()
-
-    for (softclip_position, softclip_scaffold), softclip_count in soft_clipped_positions.most_common():
-
-        candidates = collections.Counter()
-        for potential_pos in range(softclip_position-softclip_range, softclip_position+softclip_range):
-            if (potential_pos, softclip_scaffold) in updated_soft_clipped_positions:
-                candidates[(potential_pos, softclip_scaffold)] = updated_soft_clipped_positions[(potential_pos, softclip_scaffold)]
+#         candidates = collections.Counter()
+#         for potential_pos in range(softclip_position-softclip_range, softclip_position+softclip_range):
+#             if (potential_pos, softclip_scaffold) in updated_soft_clipped_positions:
+#                 candidates[(potential_pos, softclip_scaffold)] = updated_soft_clipped_positions[(potential_pos, softclip_scaffold)]
 
 
-        if len(candidates) == 0:
-            updated_soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
-        elif len(candidates) == 1:
-            winner = list(candidates.keys())[0]
-            updated_soft_clipped_positions[winner] += softclip_count
-        else:
-            winner = candidates.most_common()[0]
-            updated_soft_clipped_positions[winner] += softclip_count
-    cnt_tmp = len(soft_clipped_positions)
-    sum_tmp = sum(soft_clipped_positions.values())
-    logging.info(
-        f'Denoising soft clipped reads finished. {len(updated_soft_clipped_positions)} ({int(len(updated_soft_clipped_positions) * 100.0 / cnt_tmp)}%) positions from {sum(updated_soft_clipped_positions.values())} ({int(sum(updated_soft_clipped_positions.values()) * 100.0 / sum_tmp)}%) reads were kept.')
-    soft_clipped_positions = collections.Counter()
-    for (softclip_position, softclip_scaffold), softclip_count in updated_soft_clipped_positions.most_common():
-        if softclip_count > 1:
-            soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
-    logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)} ({int(len(soft_clipped_positions)*100.0/cnt_tmp)}%) positions from {sum(soft_clipped_positions.values())} ({int(sum(soft_clipped_positions.values())*100.0/sum_tmp)}%) reads were kept.')
+#         if len(candidates) == 0:
+#             updated_soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
+#         elif len(candidates) == 1:
+#             winner = list(candidates.keys())[0]
+#             updated_soft_clipped_positions[winner] += softclip_count
+#         else:
+#             winner = candidates.most_common()[0]
+#             updated_soft_clipped_positions[winner] += softclip_count
+#     cnt_tmp = len(soft_clipped_positions)
+#     sum_tmp = sum(soft_clipped_positions.values())
+#     logging.info(f'Denoising soft clipped reads finished. {len(updated_soft_clipped_positions)} ({int(len(updated_soft_clipped_positions) * 100.0 / cnt_tmp)}%) positions from {sum(updated_soft_clipped_positions.values())} ({int(sum(updated_soft_clipped_positions.values()) * 100.0 / sum_tmp)}%) reads were kept.')
+#     soft_clipped_positions = collections.Counter()
+#     for (softclip_position, softclip_scaffold), softclip_count in updated_soft_clipped_positions.most_common():
+#         if softclip_count > 1:
+#             soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
+#     logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)} ({int(len(soft_clipped_positions)*100.0/cnt_tmp)}%) positions from {sum(soft_clipped_positions.values())} ({int(sum(soft_clipped_positions.values())*100.0/sum_tmp)}%) reads were kept.')
+
+#     '''
+#     Pairing hard/soft clips
+#     '''
+#     for alignments in clipped_reads.values():
+#         softclipped = [aln for aln in alignments if aln[0] == 'S'][0]
+#         hardclipped = [aln for aln in alignments if aln[0] == 'H']
+#         if len(hardclipped) == 0:
+#             continue
+#         scaffold = softclipped[3]
+#         softclipped_pos = softclipped[2]
+#         for hardclip in hardclipped:
+#             hardclip_pos = hardclip[2]
+#             if hardclip_pos > softclipped_pos:
+#                 soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, scaffold)] += 1
+#             else:
+#                 soft_to_hardclip_pairs[(hardclip_pos, softclipped_pos,  scaffold)] += 1
+#     logging.info(f'Found {len(soft_to_hardclip_pairs)} hardclip-softclip split alignment pairs from {sum(soft_to_hardclip_pairs.values())} reads determining start/end positons.')
 
 
+#     with open(opr_file) as handle:
+#         for line in handle:
+#             if line.startswith('#'):
+#                 if line.startswith('#MAX_REASONABLE_INSERTSIZE'):
+#                     max_reasonable_insert_size = int(line.split('=')[1])
+#                 if line.startswith('#ESTIMATED_INSERTSIZE'):
+#                     estimated_insert_size = int(line.split('=')[1])
+#                 continue
+#             splits = line.strip().split()
+#             if splits[-1] == 'OPR':
+#                 pos1 = int(splits[6])
+#                 pos2 = int(splits[7])
+#                 scaffold = splits[1]
+#                 if pos1 < pos2:
+#                     oprs_start_to_stop[(pos1, pos2, scaffold)] += 1
+#                 else:
+#                     oprs_start_to_stop[(pos2, pos1, scaffold)] += 1
 
+#     logging.info(f'Adding OPR information from {len(oprs_start_to_stop)} positions and {sum(oprs_start_to_stop.values())} inserts.')
 
+#     opr_supported_start_ends = {}
+#     for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
+#         opr_supported_start_ends[(hsp1, hsp2, hsscaffold)] = (hscnt, 0)
 
+#     for (oprp1, oprp2, oprscaffold), oprcnt in oprs_start_to_stop.items():
+#         distances = {}
+#         for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
+#             if oprscaffold == hsscaffold:
+#                 deltap1 = abs(hsp1 - oprp1)
+#                 deltap2 = abs(hsp2 - oprp2)
+#                 delta = deltap1 + deltap2
+#                 if delta <= max_reasonable_insert_size:
+#                     distances[(hsp1, hsp2, hsscaffold, hscnt)] = delta
+#         winner = (oprp1, oprp2, oprscaffold, 0)
+#         if len(distances) > 0:
+#             max_hscnt = max(map(lambda distance: distance[3], distances))
+#             filtered_distances = {distance:insert_size for (distance,insert_size) in distances.items() if distance[3] == max_hscnt}
+#             if len(filtered_distances) == 1:
+#                 winner = list(filtered_distances.items())[0][0]
+#             else:
+#                 min_dev_from_insert_size = min([abs(isize - estimated_insert_size) for isize in filtered_distances.values()])
+#                 double_filtered_distances = {distance: isize for (distance, isize) in filtered_distances.items() if abs(isize - estimated_insert_size) == min_dev_from_insert_size}
+#                 winner = list(double_filtered_distances.items())[0][0]
+#         else:
+#             winner = (oprp1, oprp2, oprscaffold, 0)
 
-    '''
-    Pairing hard/soft clips
-    '''
-    for insert, alignments in clipped_reads.items():
-        softclipped = [aln for aln in alignments if aln[0] == 'S'][0]
-        hardclipped = [aln for aln in alignments if aln[0] == 'H']
-        if len(hardclipped) == 0:
-            continue
-        scaffold = softclipped[3]
-        softclipped_pos = softclipped[2]
-        for hardclip in hardclipped:
-            hardclip_pos = hardclip[2]
-            if hardclip_pos > softclipped_pos:
-                soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, scaffold)] += 1
-            else:
-                soft_to_hardclip_pairs[(hardclip_pos, softclipped_pos,  scaffold)] += 1
-    logging.info(f'Found {len(soft_to_hardclip_pairs)} hardclip-softclip split alignment pairs from {sum(soft_to_hardclip_pairs.values())} reads determining start/end positons.')
-
-
-    with open(opr_file) as handle:
-        for line in handle:
-            if line.startswith('#'):
-                if line.startswith('#MAX_REASONABLE_INSERTSIZE'):
-                    max_reasonable_insert_size = int(line.split('=')[1])
-                if line.startswith('#ESTIMATED_INSERTSIZE'):
-                    estimated_insert_size = int(line.split('=')[1])
-                continue
-            splits = line.strip().split()
-            if splits[-1] == 'OPR':
-                pos1 = int(splits[6])
-                pos2 = int(splits[7])
-                scaffold = splits[1]
-                if pos1 < pos2:
-                    oprs_start_to_stop[(pos1, pos2, scaffold)] += 1
-                else:
-                    oprs_start_to_stop[(pos2, pos1, scaffold)] += 1
-
-    logging.info(f'Adding OPR information from {len(oprs_start_to_stop)} positions and {sum(oprs_start_to_stop.values())} inserts.')
-
-    opr_supported_start_ends = {}
-    for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
-        opr_supported_start_ends[(hsp1, hsp2, hsscaffold)] = (hscnt, 0)
-
-    for (oprp1, oprp2, oprscaffold), oprcnt in oprs_start_to_stop.items():
-        distances = {}
-        for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
-            if oprscaffold == hsscaffold:
-                deltap1 = abs(hsp1 - oprp1)
-                deltap2 = abs(hsp2 - oprp2)
-                delta = deltap1 + deltap2
-                if delta <= max_reasonable_insert_size:
-                    distances[(hsp1, hsp2, hsscaffold, hscnt)] = delta
-        winner = (oprp1, oprp2, oprscaffold, 0)
-        if len(distances) > 0:
-            max_hscnt = max(map(lambda distance: distance[3], distances))
-            filtered_distances = {distance:insert_size for (distance,insert_size) in distances.items() if distance[3] == max_hscnt}
-            if len(filtered_distances) == 1:
-                winner = list(filtered_distances.items())[0][0]
-            else:
-                min_dev_from_insert_size = min([abs(isize - estimated_insert_size) for isize in filtered_distances.values()])
-                double_filtered_distances = {distance: isize for (distance, isize) in filtered_distances.items() if abs(isize - estimated_insert_size) == min_dev_from_insert_size}
-                winner = list(double_filtered_distances.items())[0][0]
-        else:
-            winner = (oprp1, oprp2, oprscaffold, 0)
-
-        entry = opr_supported_start_ends.get((winner[0], winner[1], winner[2]), (0,0))
-        entry = (entry[0], entry[1] + oprcnt)
-        opr_supported_start_ends[(winner[0], winner[1], winner[2])] = entry
+#         entry = opr_supported_start_ends.get((winner[0], winner[1], winner[2]), (0,0))
+#         entry = (entry[0], entry[1] + oprcnt)
+#         opr_supported_start_ends[(winner[0], winner[1], winner[2])] = entry
 
 
 
 
-    logging.info(f'Added OPR information. Now working with {len(opr_supported_start_ends)} start/end combinations.')
-    #minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True
-    minsize = minmvirlength
-    maxsize = maxmvirlength
-    minoprcount = 1
-    minhscount = 1
-    mincombcount = 5
+#     logging.info(f'Added OPR information. Now working with {len(opr_supported_start_ends)} start/end combinations.')
+#     #minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True
+#     minsize = minmvirlength
+#     maxsize = maxmvirlength
+#     minoprcount = 1
+#     minhscount = 1
+#     mincombcount = 5
     
 
 
-    # for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),
-    #                                                         reverse=True)[:10]:
-    #     print((start, end, scaffold, end - start, hs_cnt, opr_cnt))
+#     # for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),
+#     #                                                         reverse=True)[:10]:
+#     #     print((start, end, scaffold, end - start, hs_cnt, opr_cnt))
     
-    logging.info(f'Filtering: \n\tby length {minsize} <= length <= {maxsize}. \n\t#OPRs >= {minoprcount}\n\t#HARD-SOFT >= {minhscount}\n\t#OPRS + #HARD-SOFT >= {mincombcount}\n\tAllow full scaffolds: {allow_complete_scaffolds}')
-    updated_opr_supported_start_ends = {}
-    for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
-        # 1:
-        length = end - start + 1
+#     logging.info(f'Filtering: \n\tby length {minsize} <= length <= {maxsize}. \n\t#OPRs >= {minoprcount}\n\t#HARD-SOFT >= {minhscount}\n\t#OPRS + #HARD-SOFT >= {mincombcount}\n\tAllow full scaffolds: {allow_complete_scaffolds}')
+#     updated_opr_supported_start_ends = {}
+#     for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
+#         # 1:
+#         length = end - start + 1
         
-        if minsize >= length or length >= maxsize:
-            continue
-        # 2:
-        if opr_cnt < minoprcount or hs_cnt < minhscount or (opr_cnt + hs_cnt) < mincombcount:
-            continue
-        # 3:
-        scaffold_length = len(reference_header_2_sequence[scaffold])
-        if not allow_complete_scaffolds:
-            if scaffold_length * 0.99 <  length:
-                continue
-        updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
-    opr_supported_start_ends = updated_opr_supported_start_ends
-    logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
+#         if minsize >= length or length >= maxsize:
+#             continue
+#         # 2:
+#         if opr_cnt < minoprcount or hs_cnt < minhscount or (opr_cnt + hs_cnt) < mincombcount:
+#             continue
+#         # 3:
+#         scaffold_length = len(reference_header_2_sequence[scaffold])
+#         if not allow_complete_scaffolds:
+#             if scaffold_length * 0.99 <  length:
+#                 continue
+#         updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
+#     opr_supported_start_ends = updated_opr_supported_start_ends
+#     logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
 
 
-    ref_opr_supported_start_ends = {}
-    for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
-        found = False
-        for (refstart, refend, refscaffold), (ref_hs_cnt, ref_opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
-            if refscaffold == scaffold:
-                if refstart - softclip_range <= start <= refstart + softclip_range:
-                    if refend - softclip_range <= end <= refend + softclip_range:
-                        ref_opr_supported_start_ends[(refstart, refend, refscaffold)] = (hs_cnt + ref_hs_cnt, opr_cnt + ref_opr_cnt)
-                        found = True
-                        break
-        if not found:
-            ref_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
+#     ref_opr_supported_start_ends = {}
+#     for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
+#         found = False
+#         for (refstart, refend, refscaffold), (ref_hs_cnt, ref_opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
+#             if refscaffold == scaffold:
+#                 if refstart - softclip_range <= start <= refstart + softclip_range:
+#                     if refend - softclip_range <= end <= refend + softclip_range:
+#                         ref_opr_supported_start_ends[(refstart, refend, refscaffold)] = (hs_cnt + ref_hs_cnt, opr_cnt + ref_opr_cnt)
+#                         found = True
+#                         break
+#         if not found:
+#             ref_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
 
-    with open(output_fasta_file, 'w') as outhandle:
-        for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
-            scaffold_sequence = reference_header_2_sequence[scaffold]
-            scaffold_length = len(scaffold_sequence)
-            subsequence = scaffold_sequence[start:end+1]
-            scaffold_coverage = 100.0 * float(len(subsequence))/float(scaffold_length)
-            scaffold_coverage = "{:0.6f}".format(scaffold_coverage)
-            outhandle.write(f'>{scaffold}:{start}-{end}\tOPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage}\n{subsequence}\n')
+#     with open(output_fasta_file, 'w') as outhandle:
+#         for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
+#             scaffold_sequence = reference_header_2_sequence[scaffold]
+#             scaffold_length = len(scaffold_sequence)
+#             subsequence = scaffold_sequence[start:end+1]
+#             scaffold_coverage = 100.0 * float(len(subsequence))/float(scaffold_length)
+#             scaffold_coverage = "{:0.6f}".format(scaffold_coverage)
+#             outhandle.write(f'>{scaffold}:{start}-{end}\tOPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage}\n{subsequence}\n')

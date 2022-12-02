@@ -1,10 +1,14 @@
 import pytest
 import filecmp
+from pathlib import Path
+
+from mVIRs import (
+    extract_regions 
+)
 
 from mVIRs.oprs import (
     find_clipped_reads, 
-    find_oprs, 
-    extract_regions
+    find_oprs
 )
 
 
@@ -16,11 +20,15 @@ def bam_file():
 def reference_fasta():
     return "tests/data/np_salmoLT2.fasta.gz"
 
+# @pytest.fixture
+# def test_dir():
+#     path = Path("tests/data/test_out")
+#     path.mkdir(exist_ok=True)
+#     return path
+
 @pytest.fixture(scope="session")
 def test_dir(tmp_path_factory):
-    test_dir = tmp_path_factory.mktemp("page-templates")
-    out_dir = test_dir / "test_out"
-    out_dir.mkdir()
+    test_dir = tmp_path_factory.mktemp("tmp")
     return test_dir
 
 @pytest.fixture
@@ -42,6 +50,12 @@ def output_fasta(out_prefix, test_dir):
     output_fasta = test_dir / (out_prefix + ".fasta")
     return output_fasta
 
+# def test_load_fasta():
+#     small_fasta = "tests/data/small.fasta"
+#     loaded_fasta = load_fasta(small_fasta)
+#     assert loaded_fasta == {"SalmonellaLT2": "CGGG",
+#                             "SalmonellaLT2_plasmid": "ACAG"}
+
 def test_find_clipped_reads(bam_file, clipped_file):
     # Find clipped reads
     find_clipped_reads(bam_file, clipped_file)
@@ -56,8 +70,13 @@ def test_find_oprs(bam_file, oprs_file):
 
 
 def test_extract_regions(clipped_file, oprs_file, reference_fasta, output_fasta):
-    extract_regions(clipped_file, oprs_file, reference_fasta, output_fasta,
-                    minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True)
+    extract_regions(str(clipped_file), 
+                    str(oprs_file), 
+                    str(reference_fasta), 
+                    str(output_fasta),
+                    minmvirlength=1000, 
+                    maxmvirlength=1000000, 
+                    allow_complete_scaffolds=True)
     output_fasta_expected = "tests/expected/ERR4552622_100k_mVIRs.fasta"    
     assert filecmp.cmp(output_fasta, output_fasta_expected, shallow=False)
 

@@ -1,4 +1,3 @@
-import gzip
 import logging
 import sys
 
@@ -51,44 +50,3 @@ def read_seq_file(seq_file):
     return seq_headers
 
 
-def get_read_orientation(rev: bool) -> str:
-    """
-    Helper function to print if an alignments is forward or reverse
-    :param rev:
-    :return:
-    """
-    if rev:
-        return 'reverse'
-    else:
-        return 'forward'
-
-
-def load_fasta(sequence_file):
-    '''
-    Read a fasta file and put it into a dictionary
-    :param sequence_file:
-    :return:
-    '''
-    if sequence_file.endswith('.gz'):
-        handle = gzip.open(sequence_file, 'rt')
-    else:
-        handle = open(sequence_file)
-    sequences = {}
-    current_header = None
-    for line in handle:
-        line = line.strip().split()[0]
-        if len(line) == 0:
-            continue
-        if line.startswith('>'):
-            line = line[1:]
-            current_header = line
-            sequences[current_header] = []
-        else:
-            sequences[current_header].append(line)
-
-    handle.close()
-    sequences2 = {}
-    for header, sequence in sequences.items():
-        tmp_seq = ''.join(sequence)
-        sequences2[header] = tmp_seq
-    return sequences2

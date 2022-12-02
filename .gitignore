@@ -417,3 +417,6 @@ buildNumber.properties
 /scratch
 .snakemake/
 /notebooks/*
+*/dev.ipynb
+profile*
+*.c
