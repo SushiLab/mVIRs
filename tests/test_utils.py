@@ -3,12 +3,9 @@ import filecmp
 from pathlib import Path
 
 from mVIRs import (
+    find_clipped_reads,
+    find_oprs,
     extract_regions 
-)
-
-from mVIRs.oprs import (
-    find_clipped_reads, 
-    find_oprs
 )
 
 
@@ -58,13 +55,13 @@ def output_fasta(out_prefix, test_dir):
 
 def test_find_clipped_reads(bam_file, clipped_file):
     # Find clipped reads
-    find_clipped_reads(bam_file, clipped_file)
+    find_clipped_reads(str(bam_file), str(clipped_file))
     clipped_expected = "tests/expected/ERR4552622_100k_mVIRs.clipped"   
     assert filecmp.cmp(clipped_file, clipped_expected, shallow=False)
 
 
 def test_find_oprs(bam_file, oprs_file):
-    find_oprs(bam_file, oprs_file, min_coverage=0.8, min_alength=45)
+    find_oprs(str(bam_file), str(oprs_file), min_coverage=0.8, min_alength=45)
     oprs_expected = "tests/expected/ERR4552622_100k_mVIRs.oprs"
     assert filecmp.cmp(oprs_file, oprs_expected, shallow=False)
 

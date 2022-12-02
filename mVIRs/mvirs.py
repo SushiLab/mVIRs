@@ -10,10 +10,11 @@ import urllib.response
 
 from .alignment import align
 from .index import index_genome
-from .oprs import find_clipped_reads, find_oprs
 from .utils import check_sequences, shutdown, startup
 
 from mVIRs import ( 
+    find_clipped_reads,
+    find_oprs,
     extract_regions
 ) 
 
