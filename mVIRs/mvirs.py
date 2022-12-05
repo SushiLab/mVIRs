@@ -182,7 +182,10 @@ Usage: mvirs oprs [options]
     output_folder = pathlib.Path(args.output)
     output_folder.mkdir(parents=True, exist_ok=True)
 
-    _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, opr_file, clipped_file, output_fasta_file, minlength_report, maxlength_report, allow_fl_report, threads)
+    _execute_oprs(forward_read_file, reversed_read_file, 
+                  str(out_bam_file), str(bwa_ref_name), str(opr_file), 
+                  str(clipped_file), str(output_fasta_file), 
+                  minlength_report, maxlength_report, allow_fl_report, threads)
 
 
 def test():

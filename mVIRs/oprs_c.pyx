@@ -49,7 +49,7 @@ cdef inline str _calc_orientation(bint revr1, bint revr2, int posr1, int posr2):
         orientation = 'OPR'
     return orientation
 
-cdef inline extract_alignment_info(AlignedSegment alignment, bint need_extended):
+cdef inline tuple extract_alignment_info(AlignedSegment alignment, bint need_extended):
     
     cdef list data_tmp = alignment.qname.rsplit('/', 1)
     cdef str readname = data_tmp[0]
@@ -237,6 +237,8 @@ cdef (int, int, int) _estimate_insert_size(insert2alignments):
 
     return minvaltmp, maxvaltmp, int(statistics.median(so))
 
+cdef inline int get_score(pa_alignment):
+    return pa_alignment.score
 
 def _calc_primary_paired_alignment(insert2alignments, 
                                    int insertsize,
@@ -271,7 +273,7 @@ def _calc_primary_paired_alignment(insert2alignments,
                 bestscore = -1
                 pe_bestalns = []
 
-                for alignment in sorted(pe_candidates, key=lambda x: x.score, reverse=True):
+                for alignment in sorted(pe_candidates, key=get_score, reverse=True):
                     if bestscore == -1:
                         bestscore = alignment.score
                     if alignment.score == bestscore:
@@ -530,6 +532,7 @@ cpdef void find_oprs(str out_bam_file,
                 continue
 
             if alncnt % 500000 == 0:
+            
                 logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
         logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
         logging.info('Finished screening for OPRs and Paired-End inserts with unreasonable insert size.')

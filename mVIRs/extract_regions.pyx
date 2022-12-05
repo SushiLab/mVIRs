@@ -2,6 +2,34 @@ import logging
 from collections import defaultdict, Counter
 import gzip
 
+cpdef list read_seq_file(str seq_file):
+    cdef list lines = []
+    cdef str line 
+    cdef int modulo = 2
+    cdef list seq_headers = []
+    cdef int cnt 
+
+    if seq_file.endswith('gz'):
+        with gzip.open(seq_file, 'rt') as handle:
+            for line in handle:
+                lines.append(line.strip())
+                if len(lines) == 1000:
+                    break
+    else:
+        with open(seq_file) as handle:
+            for line in handle:
+                lines.append(line.strip())
+                if len(lines) == 1000:
+                    break
+
+    if lines[0].startswith('@'):
+        modulo = 4
+    for cnt, line in enumerate(lines):
+        if cnt % modulo == 0:
+            seq_headers.append(line.split()[0])
+
+    return seq_headers
+
 
 cdef dict load_fasta(str sequence_file):
     '''
@@ -57,7 +85,7 @@ cdef read_clipped_file(str clipped_file):
     
     return clipped_reads, soft_clipped_positions 
 
-cdef read_oprs_file(str oprs_filepath):
+cdef tuple read_oprs_file(str oprs_filepath):
     
     cdef int pos1, pos2 
     cdef int max_reasonable_insert_size = 0
@@ -139,8 +167,11 @@ cdef pair_hard_soft(clipped_reads):
 
     return soft_to_hardclip_pairs
 
+cdef int get_sum(tuple tpl):
+    tuple_sum = sum(tpl[1])
+    return tuple_sum
 
-def extract_regions(
+cpdef extract_regions(
     str clipped_file, 
     str opr_file, 
     str reference_fasta_file, 
@@ -165,7 +196,7 @@ def extract_regions(
     cdef dict reference_header_2_sequence = load_fasta(reference_fasta_file)
     clipped_reads, soft_clipped_positions = read_clipped_file(clipped_file)
     cdef int soft_cnt = len(soft_clipped_positions)
-    cdef int reads_sum = len(soft_clipped_positions.values())
+    cdef int reads_sum = sum(soft_clipped_positions.values())
 
     logging.info('Start finding start/end positions of non-continous alignment '
                  'regions using clipped and OPR alignments')
@@ -188,9 +219,7 @@ def extract_regions(
                  'reads were kept.')
     
     cdef int softclip_count 
-    cdef int soft_clip_percentage = 0 
-    cdef int reads = 0 
-    cdef int reads_percentage = 0
+    cdef int soft_clip_percentage, reads, reads_percentage 
     soft_clipped_positions = Counter()
     
     for (softclip_position, softclip_scaffold), softclip_count in updated_soft_clipped_positions.most_common():
@@ -201,19 +230,20 @@ def extract_regions(
     reads = sum(soft_clipped_positions.values())
     reads_percentage = int(reads * 100.0 / sum_tmp)
 
-    logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)}'
-                 f'({soft_clip_percentage}%) positions from {reads}' 
+    logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)} '
+                 f'({soft_clip_percentage}%) positions from {reads} ' 
                  f'({reads_percentage}%) reads were kept.')
 
     soft_to_hardclip_pairs = pair_hard_soft(clipped_reads)
 
-    logging.info(f'Found {len(soft_to_hardclip_pairs)} hardclip-softclip split' 
-                 f'alignment pairs from {sum(soft_to_hardclip_pairs.values())}' 
+    logging.info(f'Found {len(soft_to_hardclip_pairs)} hardclip-softclip split ' 
+                 f'alignment pairs from {sum(soft_to_hardclip_pairs.values())} ' 
                   'reads determining start/end positons.')
 
     oprs_start_to_stop, max_reasonable_insert_size, estimated_insert_size = read_oprs_file(opr_file)
 
-    logging.info(f'Adding OPR information from {len(oprs_start_to_stop)} positions and {sum(oprs_start_to_stop.values())} inserts.')
+    logging.info(f'Addng OPR information from {len(oprs_start_to_stop)} positions '
+                 f'and {sum(oprs_start_to_stop.values())} inserts.')
 
     cdef dict opr_supported_start_ends = {}
     cdef int hsp1, hsp2
@@ -226,7 +256,11 @@ def extract_regions(
     cdef int oprp1, oprp2
     cdef str oprscaffold
     cdef int min_dev_from_insert_size
-    cdef int oprcnt
+    cdef int oprcnt, length, scaffold_length
+    cdef int minsize = minmvirlength
+    cdef int maxsize = maxmvirlength
+    cdef (int, int) entry
+    cdef tuple winner
 
     for (oprp1, oprp2, oprscaffold), oprcnt in oprs_start_to_stop.items():
         distances = {}
@@ -237,18 +271,31 @@ def extract_regions(
                 delta = deltap1 + deltap2
                 if delta <= max_reasonable_insert_size:
                     distances[(hsp1, hsp2, hsscaffold, hscnt)] = delta
-        winner = (oprp1, oprp2, oprscaffold, 0)
+
         if len(distances) > 0:
-            max_hscnt = max([distance[3] for distance in distances])
+            max_hscnt = max([distance[3] for distance in distances.keys()])
             filtered_distances = {distance:insert_size for (distance,insert_size) in distances.items() if distance[3] == max_hscnt}
             if len(filtered_distances) == 1:
-                winner = list(filtered_distances.items())[0][0]
+                winner = tuple(filtered_distances.keys())[0]
             else:
                 min_dev_from_insert_size = min([abs(isize - estimated_insert_size) for isize in filtered_distances.values()])
                 double_filtered_distances = {distance: isize for (distance, isize) in filtered_distances.items() if abs(isize - estimated_insert_size) == min_dev_from_insert_size}
-                winner = list(double_filtered_distances.items())[0][0]
+                winner = tuple(double_filtered_distances.keys())[0]
         else:
             winner = (oprp1, oprp2, oprscaffold, 0)
+
+        ## filtering rule 1: length
+    
+        length = winner[1] - winner[0] + 1
+            
+        if minsize >= length or length >= maxsize:
+            continue
+        
+        ## filtering rule 3: length relative to scaffold
+        scaffold_length = len(reference_header_2_sequence[winner[2]])
+        if not allow_complete_scaffolds:
+            if scaffold_length * 0.99 <  length:
+                continue
 
         entry = opr_supported_start_ends.get((winner[0], winner[1], winner[2]), (0,0))
         entry = (entry[0], entry[1] + oprcnt)
@@ -257,12 +304,11 @@ def extract_regions(
     logging.info(f'Added OPR information. Now working with '
                  f'{len(opr_supported_start_ends)} start/end combinations.')
     #minmvirlength=1000, maxmvirlength=1000000, allow_complete_scaffolds=True
-    cdef int minsize = minmvirlength
-    cdef int maxsize = maxmvirlength
+
     cdef int minoprcount = 1
     cdef int minhscount = 1
     cdef int mincombcount = 5
-    cdef int length, scaffold_length, opr_cnt, hs_cnt, start, end
+    cdef int opr_cnt, hs_cnt, start, end
     cdef dict updated_opr_supported_start_ends = {}
 
     logging.info(f'Filtering: \n\tby length {minsize} <= length <= {maxsize}. '
@@ -270,30 +316,27 @@ def extract_regions(
                  f'\n\t#OPRS + #HARD-SOFT >= {mincombcount} '
                  f'\n\tAllow full scaffolds: {allow_complete_scaffolds}')
     
-    for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
-        # 1:
-        length = end - start + 1
-        
-        if minsize >= length or length >= maxsize:
-            continue
+    for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=get_sum, reverse=True):
+
         # 2:
         if opr_cnt < minoprcount or hs_cnt < minhscount or (opr_cnt + hs_cnt) < mincombcount:
             continue
-        # 3:
-        scaffold_length = len(reference_header_2_sequence[scaffold])
-        if not allow_complete_scaffolds:
-            if scaffold_length * 0.99 <  length:
-                continue
+        updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
+        if (opr_cnt + hs_cnt) < mincombcount:
+            break
+
         updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
     opr_supported_start_ends = updated_opr_supported_start_ends
     logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
 
     cdef dict ref_opr_supported_start_ends = {}
+    cdef int refstart, refend, ref_hs_cnt, ref_opr_cnt
+    cdef str refscaffold 
     cdef bint found
 
-    for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
+    for (start, end, scaffold), (hs_cnt, opr_cnt) in opr_supported_start_ends.items():
         found = False
-        for (refstart, refend, refscaffold), (ref_hs_cnt, ref_opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]), reverse=True):
+        for (refstart, refend, refscaffold), (ref_hs_cnt, ref_opr_cnt) in ref_opr_supported_start_ends.items():
             if refscaffold == scaffold:
                 if refstart - softclip_range <= start <= refstart + softclip_range:
                     if refend - softclip_range <= end <= refend + softclip_range:
@@ -307,11 +350,11 @@ def extract_regions(
     cdef double scaffold_coverage
 
     with open(output_fasta_file, 'wb') as outhandle:
-        for (start, end, scaffold), (hs_cnt, opr_cnt) in sorted(ref_opr_supported_start_ends.items(), key=lambda i: sum(i[1]),reverse=True):
+        for (start, end, scaffold), (hs_cnt, opr_cnt) in ref_opr_supported_start_ends.items():
             scaffold_sequence = reference_header_2_sequence[scaffold]
             scaffold_length: int = len(scaffold_sequence)
             subsequence: str = scaffold_sequence[start:end+1]
-            scaffold_coverage = 100.0 * float(len(subsequence))/float(scaffold_length)
+            scaffold_coverage = 100.0 * len(subsequence) / scaffold_length
             scaffold_coverage_str = "{:0.6f}".format(scaffold_coverage)
             outhandle.write(str.encode(f'>{scaffold}:{start}-{end}\t'
                                        f'OPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage_str}'

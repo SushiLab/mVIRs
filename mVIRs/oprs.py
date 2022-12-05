@@ -1,14 +1,9 @@
 import collections
 import logging
 import sys
-from typing import Dict, Generator, List, Tuple
-
-from mVIRs import ( 
-    get_read_orientation, 
-    insertize_bamfile_by_name,
-    _estimate_insert_size,
-    _calc_primary_paired_alignment
-)
+import pysam
+from typing import Dict, Generator, List, Tuple, DefaultDict
+import statistics
 
 
 debug = False
@@ -19,6 +14,265 @@ PYSAM_BAM_CHARD_CLIP = 5
 PAlignment = collections.namedtuple('PAlignment',
                                     'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
 SAMLine = collections.namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
+
+def get_read_orientation(rev: bool) -> str:
+    """
+    Helper function to print if an alignments is forward or reverse
+    :param rev:
+    :return:
+    """
+    if rev:
+        return 'reverse'
+    else:
+        return 'forward'
+
+def insertize_bamfile_by_name(bam_file, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, need_extended = True):
+    alignments: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
+
+    current_name = None
+    current_insert = collections.defaultdict(list)
+
+
+    for alignment in alignments:
+        data_tmp = alignment.qname.rsplit('/', 1)
+        readname = data_tmp[0]
+        orientation = data_tmp[1]
+        ascore: int = alignment.get_tag('AS')
+        reverse: bool = True if alignment.is_reverse else False
+        refname: str = alignment.reference_name
+        refstart: int = alignment.reference_start
+        refend: int = alignment.reference_end
+        blocks = None
+        cigartuples = None
+        if need_extended:
+            blocks: list = alignment.get_blocks()
+            cigartuples: list = alignment.cigartuples
+        if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
+            continue
+        samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
+
+        if not current_name:
+            current_name = readname
+        if readname == current_name:
+            current_insert[orientation].append(samline)
+        else:
+            yield current_name, current_insert
+            current_name = readname
+            current_insert = collections.defaultdict(list)
+            current_insert[orientation].append(samline)
+
+
+
+    if len(current_insert) != 0:
+        yield current_name, current_insert
+
+
+
+
+def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]) -> Tuple[int, int, int]:
+    """
+    Goes through UNIQUE PAIRED END alignments and estimates the median insert size.
+    :param insert2alignments:
+    :return:
+    """
+
+    cnter: Counter = collections.Counter()
+    insertsizes: List[int] = []
+    import pprint
+
+    alignments: List[PAlignment]
+    for (_, alignments) in _generate_paired_alignments(insert2alignments):
+
+        if len(alignments) == 1 and alignments[0].orientation == 'PAIREDEND':
+            insertsizes.append(alignments[0].iss)
+            if len(insertsizes) > 20000:
+                break
+
+    so: List[int] = insertsizes
+    minvaltmp: int = -1
+    maxvaltmp: int = -1
+    iteration = 0
+    while True:
+        iteration += 1
+        logging.info(
+            'Estimating insert size by mean/stdev convergence. Iteration:\t{}. Min insert size:\t{}. Max insert size:\t{}. Mean insert size:\t{}. Stdev insert size:\t{}'.format(
+                iteration, format(min(so), ',d'), format(max(so), ',d'), format(int(statistics.mean(so)), ',d'), format(int(statistics.stdev(so)), ',d')))
+        tmp: List[int] = []
+        mean: int = int(statistics.mean(so))
+        stdev: int = int(statistics.pstdev(so))
+        #print(stdev)
+        minval: int = mean - 7 * stdev
+        if minval < 0:
+            minval = 0
+        maxval: int = mean + 7 * stdev
+        val: int
+        for val in so:
+            if minval > val:
+                continue
+            if maxval < val:
+                continue
+            tmp.append(val)
+        so: List[int] = tmp
+
+        if minvaltmp == minval and maxval == maxvaltmp:
+            break
+
+        minvaltmp: int = minval
+        maxvaltmp: int = maxval
+
+
+    # For mapping Illumina short-insert reads to the human genome, x is about 6-7 sigma away from the mean
+    # http://bio-bwa.sourceforge.net/bwa.shtml section Estimating Insert Size Distribution
+
+    minvaltmp: int = mean - 7 * int(statistics.pstdev(so))
+
+    if minvaltmp != 0:
+        minvaltmp = 0
+
+    maxvaltmp: int = mean + 7 * int(statistics.pstdev(so))
+    logging.info(
+        'Estimating insert size by mean/stdev convergence. Iteration:\t{}. Min insert size:\t{}. Max insert size:\t{}. Mean insert size:\t{}. Stdev insert size:\t{}'.format(
+            iteration, format(minvaltmp, ',d'), format(maxvaltmp, ',d'), format(int(statistics.mean(so)), ',d'),
+            format(int(statistics.stdev(so)), ',d')))
+
+    return minvaltmp, maxvaltmp, int(statistics.median(so))
+
+def _calc_orientation(revr1: bool, revr2: bool, posr1: int, posr2: int) -> str:
+    """
+    Based on orientation of both reads and their alignment start positions, estimate if a read is PE/SAME/OPR
+    :param revr1:
+    :param revr2:
+    :param posr1:
+    :param posr2:
+    :return: PAIREDEND, SAME, OPR
+    """
+    orientation: str = 'PAIREDEND'
+    if revr1 == revr2:
+        orientation = 'SAME'
+        return orientation
+    fwpos: int = 0
+    revpos: int = 0
+    if revr1:
+        revpos = posr1
+        fwpos = posr2
+    else:
+        revpos = posr2
+        fwpos = posr1
+    if revpos < fwpos:
+        orientation = 'OPR'
+    return orientation
+
+
+
+def _calc_primary_paired_alignment(insert2alignments: Dict[str, Dict[str, List[SAMLine]]], insertsize: int,
+                                   minreasonable_insertsize: int, maxreasonable_insertsize: int) -> Generator[Tuple[str, List[PAlignment], bool], None, None]:
+    """
+    Go through all paired alignments and find one that has a reasonable good score and is close to the insert size.
+    1. if there is a PE alignment with reasonable insert size --> take that one (and all other equally good PE with reasonable IS)
+    2. Otherwise take the best one
+    3. If there are multiple best ones return all and state add the false flag to indicate that alignment could not be resolved to a single best alignment
+    :param insert2alignments:
+    :param insertsize:
+    :return:
+    """
+
+    qname: str
+    alignments: List[PAlignment]
+
+    for (qname, alignments) in _generate_paired_alignments(insert2alignments):
+
+
+        if len(alignments) == 1:  # This is a unique alignment. No filtering required.
+            yield (qname, alignments, True)
+        else:
+            # Check if there are any alignments with PE and reasonable insert size
+            pe_candidates: List[PAlignment] = []
+            alignment: PAlignment
+            for alignment in alignments:
+                if alignment.orientation == 'PAIREDEND' and alignment.iss >= minreasonable_insertsize and alignment.iss <= maxreasonable_insertsize:
+                    pe_candidates.append(alignment)
+            if len(pe_candidates) != 0:
+                # if there are alignments with PE and reasonable insertsize then pick the one(s) with the best score
+                bestscore: int = -1
+                pe_bestalns: List[PAlignment] = []
+                alignment: PAlignment
+                for alignment in sorted(pe_candidates, key=lambda x: x.score, reverse=True):
+                    if bestscore == -1:
+                        bestscore = alignment.score
+                    if alignment.score == bestscore:
+                        pe_bestalns.append(alignment)
+                # and yield the best one(s)
+                if len(pe_bestalns) != 0:
+                    yield (qname, pe_bestalns, True)
+                    continue
+            else:
+                yield (qname, alignments, False)
+                continue
+
+def _generate_paired_alignments(insert2alignments,
+                                cutoff_bestscore: float = 0.95) -> Generator[
+    Tuple[str, DefaultDict[str, List[PAlignment]]], None, None]:
+    """
+    Iterate over all inserts and generate pairs with a cross product. Pairs with best score are returned.
+    Careful --> throws away single end mappers. Considers only paired reads
+    :param insert2alignments:
+    :return:
+    """
+    cnt_singleend: int = 0
+    cnt_pairedend: int = 0
+    query: str
+    alignments: Dict[str, List[SAMLine]]
+    for query, alignments in insert2alignments:
+        if len(alignments) < 2:
+            cnt_singleend += 1
+            continue
+        else:
+            cnt_pairedend += 1
+            matches: DefaultDict[str, List[PAlignment]] = collections.defaultdict(list)
+            samematches: List[PAlignment] = []
+            bestscore: int = 0
+            alnr1: List[SAMLine]
+            alnr2: List[SAMLine]
+
+            for alnr1 in alignments['R1']:
+                for alnr2 in alignments['R2']:
+                    if alnr1.ref != alnr2.ref:  # if both reads align to 2 different references we continue
+                        continue
+                    orientation: str = _calc_orientation(alnr1.rev, alnr2.rev, alnr1.rstart, alnr2.rstart)
+                    isp = abs(alnr1.rstart - alnr2.rstart)
+                    positions = [alnr1.rstart, alnr2.rstart, alnr1.rend, alnr2.rend]
+                    iss = abs(max(positions) - min(positions))
+                    if orientation == 'SAME':
+                        samematches.append(
+                            PAlignment(iss=iss, revr1=alnr1.rev, revr2=alnr2.rev,
+                                       score=alnr1.score + alnr2.score, startr1=alnr1.rstart, endr1=alnr1.rend, startr2=alnr2.rstart, endr2=alnr2.rend,
+                                       orientation=orientation, ref=alnr1.ref))
+                        continue
+                    score: int = alnr1.score + alnr2.score
+                    if bestscore < score:
+                        bestscore = score
+                    matches[alnr1.score + alnr2.score].append(
+                        PAlignment(iss=iss, revr1=alnr1.rev, revr2=alnr2.rev, score=score,
+                                   startr1=alnr1.rstart, endr1=alnr1.rend, startr2=alnr2.rstart,
+                                   endr2=alnr2.rend, orientation=orientation, ref=alnr1.ref))
+
+
+            minscore: int = int(bestscore * cutoff_bestscore)
+            scoreinsertsizesortedmatches: DefaultDict[str, List[PAlignment]] = []
+            score: int
+            for score in sorted(matches.keys(), reverse=True):
+                if score < minscore:
+                    continue
+                match = matches[score]
+                tmpmatch: Iterable[PAlignment] = sorted(match, key=lambda x: x.iss)
+                scoreinsertsizesortedmatches = scoreinsertsizesortedmatches + tmpmatch
+            samematch: PAlignment
+            for samematch in samematches:
+                if samematch.score >= minscore:
+                    scoreinsertsizesortedmatches.append(samematch)
+            if len(scoreinsertsizesortedmatches) == 0:
+                continue
+            yield (query, scoreinsertsizesortedmatches)
 
 
 def find_clipped_reads(bam_file, clipped_file) -> None:
