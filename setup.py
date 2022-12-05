@@ -1,19 +1,22 @@
+import os
+
 from setuptools import setup, Extension
+# from setuptools.command.build_ext import build_ext as _build_ext
 from Cython.Build import build_ext
 
+try:
+    from Cython.Build import cythonize
+except ImportError as err:
+    cythonize = err
 
-
-import os
 SRC_DIR = "mVIRs"
 PACKAGES = [SRC_DIR]
 
-ext_oprs = Extension(SRC_DIR + ".oprs_c",
-                    [SRC_DIR + "/oprs_c.pyx"])
+EXTENSIONS = [
+    Extension("mVIRs.oprs_c", [SRC_DIR + "/oprs_c.pyx"], language="c++"),
+    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"]),
+]
 
-ext_regions = Extension(SRC_DIR + ".extract_regions",
-                       [SRC_DIR + "/extract_regions.pyx"])
-
-EXTENSIONS = [ext_oprs, ext_regions]
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()

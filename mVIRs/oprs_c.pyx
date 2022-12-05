@@ -5,11 +5,32 @@ import statistics
 import sys
 
 from pysam.libcalignmentfile cimport AlignmentFile, AlignedSegment
+from libcpp.string cimport string
 
 
 PAlignment = namedtuple('PAlignment',
                         'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
-SAMLine = namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
+# SAMLine = namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
+
+cdef class SAMLine:
+    cdef readonly bint rev
+    cdef readonly str ref
+    cdef readonly int rstart
+    cdef readonly int rend
+    cdef readonly int score
+    cdef readonly list blocks 
+    cdef readonly list cigartuples
+
+    def __init__(self, rev, ref, rstart, rend, score, blocks, cigartuples):
+        self.rev = rev
+        self.ref = ref
+        self.rstart = rstart
+        self.rend = rend
+        self.score = score
+        self.blocks = blocks
+        self.cigartuples = cigartuples    
+
+
 
 
 cdef inline str get_read_orientation(bint rev):
@@ -31,9 +52,10 @@ cdef inline str _calc_orientation(bint revr1, bint revr2, int posr1, int posr2):
     :param posr2:
     :return: PAIREDEND, SAME, OPR
     """
-    cdef str orientation = 'PAIREDEND'
-    cdef int fwpos = 0
-    cdef int revpos = 0
+    cdef: 
+        str orientation = 'PAIREDEND'
+        int fwpos = 0
+        int revpos = 0
     
     if revr1 == revr2:
         orientation = 'SAME'
@@ -51,16 +73,17 @@ cdef inline str _calc_orientation(bint revr1, bint revr2, int posr1, int posr2):
 
 cdef inline tuple extract_alignment_info(AlignedSegment alignment, bint need_extended):
     
-    cdef list data_tmp = alignment.qname.rsplit('/', 1)
-    cdef str readname = data_tmp[0]
-    cdef str orientation = data_tmp[1]
-    cdef int ascore = alignment.get_tag('AS')
-    cdef bint reverse = True if alignment.is_reverse else False
-    cdef str refname = alignment.reference_name
-    cdef int refstart = alignment.reference_start
-    cdef int refend = alignment.reference_end
-    cdef list blocks = None
-    cdef list cigartuples = None
+    cdef: 
+        list data_tmp = alignment.qname.rsplit('/', 1)
+        str readname = data_tmp[0]
+        str orientation = data_tmp[1]
+        int ascore = alignment.get_tag('AS')
+        bint reverse = True if alignment.is_reverse else False
+        str refname = alignment.reference_name
+        int refstart = alignment.reference_start
+        int refend = alignment.reference_end
+        list blocks = None
+        list cigartuples = None
 
     if need_extended:
         blocks = alignment.get_blocks()
@@ -520,8 +543,12 @@ cpdef void find_oprs(str out_bam_file,
                 for cnt, alignment in enumerate(alignments):
                     printstring = template.format(query, alignment.ref, alignment.iss,
                                                   get_read_orientation(alignment.revr1),
-                                                  get_read_orientation(alignment.revr2), alignment.score, alignment.startr1,
-                                                  alignment.startr2, alignment.endr1 - alignment.startr1, alignment.endr2 - alignment.startr2,
+                                                  get_read_orientation(alignment.revr2), 
+                                                  alignment.score, 
+                                                  alignment.startr1,
+                                                  alignment.startr2, 
+                                                  alignment.endr1 - alignment.startr1, 
+                                                  alignment.endr2 - alignment.startr2,
                                                   alignment.orientation)
                     if alignment.orientation == 'PAIREDEND' and alignment.iss >= minreasonable_insertsize and alignment.iss <= maxreasonable_insertsize:  # pe with reasonable insert size
                         x = 0

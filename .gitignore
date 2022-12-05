@@ -420,3 +420,4 @@ buildNumber.properties
 */dev.ipynb
 profile*
 *.c
+*.cpp
