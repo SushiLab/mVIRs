@@ -8,9 +8,31 @@ from pysam.libcalignmentfile cimport AlignmentFile, AlignedSegment
 from libcpp.string cimport string
 
 
-PAlignment = namedtuple('PAlignment',
-                        'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
-# SAMLine = namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
+cdef class PAlignment: 
+    cdef readonly int iss
+    cdef readonly str ref
+    cdef readonly bint revr1 
+    cdef readonly bint revr2 
+    cdef readonly int score 
+    cdef readonly int startr1
+    cdef readonly int endr1  
+    cdef readonly int startr2
+    cdef readonly int endr2 
+    cdef readonly str orientation
+
+    def __init__(self, iss, ref, revr1, revr2, score, startr1, endr1, 
+                 startr2, endr2, orientation):
+        self.iss = iss
+        self.ref = ref
+        self.revr1 = revr1
+        self.revr2 = revr2
+        self.score = score
+        self.startr1 = startr1
+        self.endr1 = endr1
+        self.startr2 = startr2
+        self.endr2 = endr2
+        self.orientation = orientation
+
 
 cdef class SAMLine:
     cdef readonly bint rev
@@ -163,7 +185,9 @@ def _generate_paired_alignments(insert2alignments,
                     if orientation == 'SAME':
                         samematches.append(
                             PAlignment(iss=iss, revr1=alnr1.rev, revr2=alnr2.rev,
-                                       score=alnr1.score + alnr2.score, startr1=alnr1.rstart, endr1=alnr1.rend, startr2=alnr2.rstart, endr2=alnr2.rend,
+                                       score=alnr1.score + alnr2.score, 
+                                       startr1=alnr1.rstart, endr1=alnr1.rend, 
+                                       startr2=alnr2.rstart, endr2=alnr2.rend,
                                        orientation=orientation, ref=alnr1.ref))
                         continue
                     score: int = alnr1.score + alnr2.score
