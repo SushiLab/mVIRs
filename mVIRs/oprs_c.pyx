@@ -7,52 +7,53 @@ import sys
 from pysam.libcalignmentfile cimport AlignmentFile, AlignedSegment
 from libcpp.string cimport string
 
+PAlignment = namedtuple('PAlignment',
+                        'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
+SAMLine = namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
 
-cdef class PAlignment: 
-    cdef readonly int iss
-    cdef readonly str ref
-    cdef readonly bint revr1 
-    cdef readonly bint revr2 
-    cdef readonly int score 
-    cdef readonly int startr1
-    cdef readonly int endr1  
-    cdef readonly int startr2
-    cdef readonly int endr2 
-    cdef readonly str orientation
+# cdef class PAlignment: 
+#     cdef readonly int iss
+#     cdef readonly str ref
+#     cdef readonly bint revr1 
+#     cdef readonly bint revr2 
+#     cdef readonly int score 
+#     cdef readonly int startr1
+#     cdef readonly int endr1  
+#     cdef readonly int startr2
+#     cdef readonly int endr2 
+#     cdef readonly str orientation
 
-    def __init__(self, iss, ref, revr1, revr2, score, startr1, endr1, 
-                 startr2, endr2, orientation):
-        self.iss = iss
-        self.ref = ref
-        self.revr1 = revr1
-        self.revr2 = revr2
-        self.score = score
-        self.startr1 = startr1
-        self.endr1 = endr1
-        self.startr2 = startr2
-        self.endr2 = endr2
-        self.orientation = orientation
-
-
-cdef class SAMLine:
-    cdef readonly bint rev
-    cdef readonly str ref
-    cdef readonly int rstart
-    cdef readonly int rend
-    cdef readonly int score
-    cdef readonly list blocks 
-    cdef readonly list cigartuples
-
-    def __init__(self, rev, ref, rstart, rend, score, blocks, cigartuples):
-        self.rev = rev
-        self.ref = ref
-        self.rstart = rstart
-        self.rend = rend
-        self.score = score
-        self.blocks = blocks
-        self.cigartuples = cigartuples    
+#     def __init__(self, iss, ref, revr1, revr2, score, startr1, endr1, 
+#                  startr2, endr2, orientation):
+#         self.iss = iss
+#         self.ref = ref
+#         self.revr1 = revr1
+#         self.revr2 = revr2
+#         self.score = score
+#         self.startr1 = startr1
+#         self.endr1 = endr1
+#         self.startr2 = startr2
+#         self.endr2 = endr2
+#         self.orientation = orientation
 
 
+# cdef class SAMLine:
+#     cdef readonly bint rev
+#     cdef readonly str ref
+#     cdef readonly int rstart
+#     cdef readonly int rend
+#     cdef readonly int score
+#     cdef readonly list blocks 
+#     cdef readonly list cigartuples
+
+#     def __init__(self, rev, ref, rstart, rend, score, blocks, cigartuples):
+#         self.rev = rev
+#         self.ref = ref
+#         self.rstart = rstart
+#         self.rend = rend
+#         self.score = score
+#         self.blocks = blocks
+#         self.cigartuples = cigartuples    
 
 
 cdef inline str get_read_orientation(bint rev):
@@ -92,6 +93,7 @@ cdef inline str _calc_orientation(bint revr1, bint revr2, int posr1, int posr2):
     if revpos < fwpos:
         orientation = 'OPR'
     return orientation
+
 
 cdef inline tuple extract_alignment_info(AlignedSegment alignment, bint need_extended):
     

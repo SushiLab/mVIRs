@@ -1,13 +1,27 @@
 import os
 
 from setuptools import setup, Extension
-# from setuptools.command.build_ext import build_ext as _build_ext
-from Cython.Build import build_ext
+from setuptools.command.build_ext import build_ext as _build_ext
 
 try:
     from Cython.Build import cythonize
 except ImportError as err:
     cythonize = err
+
+class build_ext(_build_ext):
+    def run(self):
+        if isinstance(cythonize, ImportError):
+            raise RuntimeError("Failed to import Cython") from cythonize
+
+        self.extensions = cythonize(self.extensions)
+        for ext in self.extensions: # this fixes a bug with setuptools
+            ext._needs_stub = False
+
+        _build_ext.run(self)
+        
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 
 SRC_DIR = "mVIRs"
 PACKAGES = [SRC_DIR]
@@ -21,6 +35,7 @@ EXTENSIONS = [
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 install_requires = ['pysam']
+setup_requires = ['cython', 'pysam']
 long_description = read('README.md')
 setup(
     ext_modules=EXTENSIONS,
@@ -32,6 +47,7 @@ setup(
     license = "GPLv3",
     include_package_data=True,
     install_requires=install_requires,
+    setup_requires=setup_requires,
     long_description=long_description,
     long_description_content_type='text/markdown',
     keywords = "bioinformatics metagenomics NGS alignment OPRs Prophages",
