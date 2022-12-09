@@ -5,7 +5,6 @@ import statistics
 import sys
 
 from pysam.libcalignmentfile cimport AlignmentFile, AlignedSegment
-from libcpp.string cimport string
 
 PAlignment = namedtuple('PAlignment',
                         'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')

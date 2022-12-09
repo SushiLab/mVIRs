@@ -31,7 +31,7 @@ cpdef list read_seq_file(str seq_file):
     return seq_headers
 
 
-cdef dict load_fasta(str sequence_file):
+cpdef dict load_fasta(str sequence_file):
     '''
     Read a fasta file and put it into a dictionary
     :param sequence_file:
@@ -41,7 +41,7 @@ cdef dict load_fasta(str sequence_file):
     cdef dict sequences2 = {} 
     cdef str current_header
     cdef str line, header, tmp_seq 
-    cdef list seq, sequence
+    cdef list sequence
 
     if sequence_file.endswith('.gz'):
         handle = gzip.open(sequence_file, 'rt')
@@ -49,22 +49,30 @@ cdef dict load_fasta(str sequence_file):
         handle = open(sequence_file)
 
     for line in handle:
-        line = line.strip().split()[0]
-        if len(line) == 0:
+        line = line.strip()
+
+        if not line: 
             continue
-        if line.startswith('>'):
         
+        line = line.split()[0]
+
+        if not line:
+            continue
+
+        if line.startswith('>'):
             line = line[1:]
             current_header = line
             sequences[current_header] = []
         else:
             sequences[current_header].append(line)
+        
     handle.close()
-    
+ 
+
     for header, sequence in sequences.items():
-        tmp_seq = ''.join(sequence)
-        sequences2[header] = tmp_seq
-    
+        if sequence:
+            tmp_seq = ''.join(sequence)
+            sequences2[header] = tmp_seq
     return sequences2
 
 cdef read_clipped_file(str clipped_file):
@@ -113,6 +121,7 @@ cdef tuple read_oprs_file(str oprs_filepath):
                     oprs_start_to_stop[(pos2, pos1, scaffold)] += 1
 
     return oprs_start_to_stop, max_reasonable_insert_size, estimated_insert_size
+
 
 cdef denoise_softclips(soft_clipped_positions, 
                        int softclip_range):

@@ -28,7 +28,8 @@ PACKAGES = [SRC_DIR]
 
 EXTENSIONS = [
     Extension("mVIRs.oprs_c", [SRC_DIR + "/oprs_c.pyx"], language="c++"),
-    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"]),
+    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++"),
+    # Extension("mVIRs.load_fasta", [SRC_DIR + "/load_fasta.pyx"], language="c++")
 ]
 
 
