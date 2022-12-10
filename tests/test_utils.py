@@ -49,27 +49,22 @@ def output_fasta(out_prefix, test_dir):
     output_fasta = test_dir / (out_prefix + ".fasta")
     return output_fasta
 
-expected_fasta = {"SalmonellaLT2": "CGGG", "SalmonellaLT2_plasmid": "ACAG"}
-@pytest.mark.parametrize(
-    "fasta_file,context,expected",
-    [
-        ("tests/data/small.fasta", does_not_raise(), expected_fasta),
-        ("tests/data/empty_lines.fasta", does_not_raise(), expected_fasta),
-        ("tests/data/empty_sequence.fasta", does_not_raise(), expected_fasta),
-        ("tests/data/small.fasta.gz", does_not_raise(), expected_fasta),
-        ("tests/data/nonexistent.fasta", pytest.raises(FileNotFoundError), "")
-    ]
-)
+# expected_fasta = {"SalmonellaLT2": "CGGG", "SalmonellaLT2_plasmid": "ACAG"}
+# @pytest.mark.parametrize(
+#     "fasta_file,context,expected",
+#     [
+#         ("tests/data/small.fasta", does_not_raise(), expected_fasta),
+#         ("tests/data/empty_lines.fasta", does_not_raise(), expected_fasta),
+#         ("tests/data/empty_sequence.fasta", does_not_raise(), expected_fasta),
+#         ("tests/data/small.fasta.gz", does_not_raise(), expected_fasta),
+#         ("tests/data/nonexistent.fasta", pytest.raises(FileNotFoundError), "")
+#     ]
+# )
 
-def test_load_fasta(fasta_file, context, expected):
-    if expected: 
-        with context:
-            loaded_fasta = load_fasta(fasta_file)
-            assert loaded_fasta == expected
-
-    else:
-        with context:
-            loaded_fasta = load_fasta(fasta_file)
+# def test_load_fasta(fasta_file, context, expected):
+#     with context:
+#         loaded_fasta = load_fasta(fasta_file)
+#         assert loaded_fasta == expected
 
 def test_find_clipped_reads(bam_file, clipped_file):
     # Find clipped reads

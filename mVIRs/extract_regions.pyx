@@ -31,7 +31,7 @@ cpdef list read_seq_file(str seq_file):
     return seq_headers
 
 
-cpdef dict load_fasta(str sequence_file):
+cdef inline dict load_fasta(str sequence_file):
     '''
     Read a fasta file and put it into a dictionary
     :param sequence_file:
