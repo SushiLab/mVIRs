@@ -1,13 +1,23 @@
 import logging
-from collections import defaultdict, Counter
+from collections import defaultdict
+from pysam.libcfaidx cimport FastxFile, FastxRecord
+
+from libcpp.string cimport string
+from libcpp.vector cimport vector
+from libcpp.unordered_map cimport unordered_map as umap
+from libcpp.map cimport map
+
+from operator import itemgetter
+
 import gzip
+
 
 cpdef list read_seq_file(str seq_file):
     cdef list lines = []
     cdef str line 
     cdef int modulo = 2
     cdef list seq_headers = []
-    cdef int cnt 
+    cdef Py_ssize_t cnt 
 
     if seq_file.endswith('gz'):
         with gzip.open(seq_file, 'rt') as handle:
@@ -31,107 +41,86 @@ cpdef list read_seq_file(str seq_file):
     return seq_headers
 
 
-cdef inline dict load_fasta(str sequence_file):
-    '''
-    Read a fasta file and put it into a dictionary
-    :param sequence_file:
-    :return:
-    '''
-    cdef dict sequences = {}  
-    cdef dict sequences2 = {} 
-    cdef str current_header
-    cdef str line, header, tmp_seq 
-    cdef list sequence
+cdef inline umap[string, string] load_fasta(string sequence_file):
+    cdef umap[string, string] sequences 
+    cdef FastxFile fasta = FastxFile(sequence_file)
+    cdef FastxRecord entry
 
-    if sequence_file.endswith('.gz'):
-        handle = gzip.open(sequence_file, 'rt')
-    else:
-        handle = open(sequence_file)
+    for entry in fasta:
+        sequences[entry.name.encode()] = entry.sequence.encode()
 
-    for line in handle:
-        line = line.strip()
+    return sequences
 
-        if not line: 
-            continue
-        
-        line = line.split()[0]
-
-        if not line:
-            continue
-
-        if line.startswith('>'):
-            line = line[1:]
-            current_header = line
-            sequences[current_header] = []
-        else:
-            sequences[current_header].append(line)
-        
-    handle.close()
- 
-
-    for header, sequence in sequences.items():
-        if sequence:
-            tmp_seq = ''.join(sequence)
-            sequences2[header] = tmp_seq
-    return sequences2
 
 cdef read_clipped_file(str clipped_file):
 
-    cdef str line 
-    cdef list splits
+    cdef string line 
+    cdef vector[string] splits
     clipped_reads = defaultdict(list)
-    soft_clipped_positions = Counter()
+    cdef dict soft_clipped_positions = {}
 
-    with open(clipped_file) as handle:
+    with open(clipped_file, "rb") as handle:
         for line in handle:
-            if line.startswith('#'):
+            if line.startswith(b'#'):
                 continue
             splits = line.strip().split()
             clipped_reads[(splits[0], splits[1])].append((splits[2], splits[3], int(splits[4]), splits[5]))
-            if splits[2] == 'S':
+            if splits[2] == b'S':
+
+                soft_clipped_positions.setdefault((int(splits[4]), splits[5]), 0)
                 soft_clipped_positions[(int(splits[4]), splits[5])] += 1
     
     return clipped_reads, soft_clipped_positions 
+
 
 cdef tuple read_oprs_file(str oprs_filepath):
     
     cdef int pos1, pos2 
     cdef int max_reasonable_insert_size = 0
     cdef int estimated_insert_size = 0
-    cdef str line, scaffold
+    cdef string line, scaffold
     cdef list splits
-    oprs_start_to_stop = Counter() # (start, stop, scaffold) --> Count
+    cdef dict oprs_start_to_stop = {}
     
-    with open(oprs_filepath) as handle:
+    with open(oprs_filepath, "rb") as handle:
         for line in handle:
-            if line.startswith('#'):
-                if line.startswith('#MAX_REASONABLE_INSERTSIZE'):
-                    max_reasonable_insert_size = int(line.split('=')[1])
-                if line.startswith('#ESTIMATED_INSERTSIZE'):
-                    estimated_insert_size = int(line.split('=')[1])
+            if line.startswith(b'#'):
+                if line.startswith(b'#MAX_REASONABLE_INSERTSIZE'):
+                    max_reasonable_insert_size = int(line.split(b'=')[1])
+                if line.startswith(b'#ESTIMATED_INSERTSIZE'):
+                    estimated_insert_size = int(line.split(b'=')[1])
                 continue
             splits = line.strip().split()
-            if splits[-1] == 'OPR':
+            if splits[-1] == b'OPR':
                 pos1 = int(splits[6])
                 pos2 = int(splits[7])
                 scaffold = splits[1]
+
                 if pos1 < pos2:
-                    oprs_start_to_stop[(pos1, pos2, scaffold)] += 1
+                    # all fine
+                    pass
                 else:
-                    oprs_start_to_stop[(pos2, pos1, scaffold)] += 1
+                    # order is mixed 
+                    pos1, pos2 = pos2, pos1
+                
+                oprs_start_to_stop.setdefault((pos1, pos2, scaffold), 0)
+                oprs_start_to_stop[(pos1, pos2, scaffold)] += 1
 
     return oprs_start_to_stop, max_reasonable_insert_size, estimated_insert_size
 
 
-cdef denoise_softclips(soft_clipped_positions, 
-                       int softclip_range):
-    cdef int softclip_position, softclip_count
-    cdef str softclip_scaffold
-    cdef tuple winner 
-    denoised_soft_clip_pos = Counter()
+cdef denoise_softclips(soft_clipped_positions, int softclip_range):
 
-    for (softclip_position, softclip_scaffold), softclip_count in soft_clipped_positions.most_common():
-        candidates = Counter()
+    cdef int softclip_position, softclip_count
+    cdef string softclip_scaffold
+    cdef tuple winner 
+    cdef dict denoised_soft_clip_pos = {}
+    cdef dict candidates 
+
+    for (softclip_position, softclip_scaffold), softclip_count in sorted(soft_clipped_positions.items(), 
+                                                                        key=itemgetter(1),
+                                                                        reverse=True):
+        candidates = {}
 
         for potential_pos in range(softclip_position-softclip_range, softclip_position+softclip_range):
             if (potential_pos, softclip_scaffold) in denoised_soft_clip_pos:
@@ -140,12 +129,14 @@ cdef denoise_softclips(soft_clipped_positions,
         if len(candidates) == 0:
             denoised_soft_clip_pos[(softclip_position, softclip_scaffold)] = softclip_count
         
-        elif len(candidates) == 1:
-            winner = list(candidates.keys())[0]
-            denoised_soft_clip_pos[winner] += softclip_count
-
         else:
-            winner = candidates.most_common()[0]
+            if len(candidates) == 1:
+                winner = list(candidates.keys())[0]
+            else:
+                # most common candidate
+                winner = sorted(candidates.items(), key=itemgetter(1), reverse=True)[0]
+                    
+            denoised_soft_clip_pos.setdefault(winner, 0) 
             denoised_soft_clip_pos[winner] += softclip_count
         
         return denoised_soft_clip_pos
@@ -158,11 +149,11 @@ cdef pair_hard_soft(clipped_reads):
     cdef int softclipped_pos, hardclip_pos
     cdef list hardclipped
     cdef tuple softclipped
-    soft_to_hardclip_pairs = Counter()
+    cdef dict soft_to_hardclip_pairs = {}
 
     for alignments in clipped_reads.values():
-        softclipped = [aln for aln in alignments if aln[0] == 'S'][0]
-        hardclipped = [aln for aln in alignments if aln[0] == 'H']
+        softclipped = [aln for aln in alignments if aln[0] == b'S'][0]
+        hardclipped = [aln for aln in alignments if aln[0] == b'H']
         if len(hardclipped) == 0:
             continue
         scaffold = softclipped[3]
@@ -170,9 +161,14 @@ cdef pair_hard_soft(clipped_reads):
         for hardclip in hardclipped:
             hardclip_pos = hardclip[2]
             if hardclip_pos > softclipped_pos:
-                soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, scaffold)] += 1
+                # all fine, hardclip is in the beggining 
+                pass
             else:
-                soft_to_hardclip_pairs[(hardclip_pos, softclipped_pos,  scaffold)] += 1
+                # reverse the positions, hardclip is in the end
+                softclipped_pos, hardclip_pos = hardclip_pos, softclipped_pos
+            
+            soft_to_hardclip_pairs.setdefault((softclipped_pos, hardclip_pos, scaffold), 0)
+            soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, scaffold)] += 1
 
     return soft_to_hardclip_pairs
 
@@ -202,7 +198,7 @@ cpdef extract_regions(
     logging.info('Finding potential viruses in the genome')
     logging.info('Reading reference fasta')
 
-    cdef dict reference_header_2_sequence = load_fasta(reference_fasta_file)
+    cdef umap[string, string] reference_header_2_sequence = load_fasta(reference_fasta_file.encode())
     clipped_reads, soft_clipped_positions = read_clipped_file(clipped_file)
     cdef int soft_cnt = len(soft_clipped_positions)
     cdef int reads_sum = sum(soft_clipped_positions.values())
@@ -229,14 +225,16 @@ cpdef extract_regions(
     
     cdef int softclip_count 
     cdef int soft_clip_percentage, reads, reads_percentage 
-    soft_clipped_positions = Counter()
+    cdef dict filtered_soft_clipped_positions = {}
     
-    for (softclip_position, softclip_scaffold), softclip_count in updated_soft_clipped_positions.most_common():
+    for (softclip_position, softclip_scaffold), softclip_count in sorted(updated_soft_clipped_positions.items(), 
+                                                                         key=itemgetter(1),
+                                                                         reverse=True):
         if softclip_count > 1:
-            soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
+            filtered_soft_clipped_positions[(softclip_position, softclip_scaffold)] = softclip_count
     
-    soft_clip_percentage = int(len(soft_clipped_positions) * 100.0 / cnt_tmp)
-    reads = sum(soft_clipped_positions.values())
+    soft_clip_percentage = int(len(filtered_soft_clipped_positions) * 100.0 / cnt_tmp)
+    reads = sum(filtered_soft_clipped_positions.values())
     reads_percentage = int(reads * 100.0 / sum_tmp)
 
     logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)} '
@@ -256,14 +254,14 @@ cpdef extract_regions(
 
     cdef dict opr_supported_start_ends = {}
     cdef int hsp1, hsp2
-    cdef str hsscaffold
+    cdef string hsscaffold
     for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
         opr_supported_start_ends[(hsp1, hsp2, hsscaffold)] = (hscnt, 0)
 
     cdef dict distances, filtered_distances, double_filtered_distances
     cdef int deltap1, deltap2, delta
     cdef int oprp1, oprp2
-    cdef str oprscaffold
+    cdef string oprscaffold
     cdef int min_dev_from_insert_size
     cdef int oprcnt, length, scaffold_length
     cdef int minsize = minmvirlength
@@ -318,7 +316,9 @@ cpdef extract_regions(
     cdef int minhscount = 1
     cdef int mincombcount = 5
     cdef int opr_cnt, hs_cnt, start, end
+    cdef string scaffold
     cdef dict updated_opr_supported_start_ends = {}
+    
 
     logging.info(f'Filtering: \n\tby length {minsize} <= length <= {maxsize}. '
                  f'\n\t#OPRs >= {minoprcount}\n\t#HARD-SOFT >= {minhscount} '
@@ -340,7 +340,7 @@ cpdef extract_regions(
 
     cdef dict ref_opr_supported_start_ends = {}
     cdef int refstart, refend, ref_hs_cnt, ref_opr_cnt
-    cdef str refscaffold 
+    cdef string refscaffold
     cdef bint found
 
     for (start, end, scaffold), (hs_cnt, opr_cnt) in opr_supported_start_ends.items():
@@ -355,16 +355,16 @@ cpdef extract_regions(
         if not found:
             ref_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
 
-    cdef str scaffold_sequence, subsequence, scaffold_coverage_str
+    cdef string scaffold_sequence
+    cdef str subsequence
     cdef double scaffold_coverage
 
     with open(output_fasta_file, 'wb') as outhandle:
         for (start, end, scaffold), (hs_cnt, opr_cnt) in ref_opr_supported_start_ends.items():
             scaffold_sequence = reference_header_2_sequence[scaffold]
             scaffold_length: int = len(scaffold_sequence)
-            subsequence: str = scaffold_sequence[start:end+1]
-            scaffold_coverage = 100.0 * len(subsequence) / scaffold_length
-            scaffold_coverage_str = "{:0.6f}".format(scaffold_coverage)
-            outhandle.write(str.encode(f'>{scaffold}:{start}-{end}\t'
-                                       f'OPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage_str}'
+            subsequence: str = scaffold_sequence[start:end+1].decode()
+            scaffold_coverage = round(100.0 * len(subsequence) / scaffold_length, 6)
+            outhandle.write(str.encode(f'>{scaffold.decode()}:{start}-{end}\t'
+                                       f'OPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage}'
                                        f'\n{subsequence}\n'))

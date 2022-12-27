@@ -2,6 +2,20 @@
 # Created by https://www.gitignore.io/api/r,java,julia,linux,macos,python,windows,pycharm,jupyternotebooks,gradle
 # Edit at https://www.gitignore.io/?templates=r,java,julia,linux,macos,python,windows,pycharm,jupyternotebooks,gradle
 
+benchmark/
+# METAG test
+tests/data/SAMD00114920.fa.bam
+tests/data/SAMD00114920.fa
+tests/expected/SAMD00114920.fa.fasta
+# Reference genome test
+tests/data/genome.fna.bam
+tests/data/genome.fna
+tests/expected/genome.fna.fasta
+
+# tests on big data 
+tests/test_real_data.py
+tests/test_out
+
 ### Java ###
 # Compiled class file
 *.class

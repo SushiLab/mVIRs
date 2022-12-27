@@ -5,6 +5,9 @@ from .extract_regions import (
 )
 
 from .oprs_c import (
-    find_clipped_reads,
     find_oprs
+)
+
+from .clipped_reads import (
+    find_clipped_reads
 )

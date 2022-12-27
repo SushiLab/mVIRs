@@ -3,11 +3,17 @@ from contextlib import nullcontext as does_not_raise
 import filecmp
 from pathlib import Path
 
-from mVIRs import (
-    find_clipped_reads,
-    find_oprs,
-    extract_regions,
-    load_fasta
+from mVIRs.oprs_c import (
+    find_oprs
+) 
+
+from mVIRs.clipped_reads import (
+    find_clipped_reads
+)
+
+from mVIRs.extract_regions import (
+    extract_regions
+    # load_fasta
 )
 
 
@@ -19,16 +25,16 @@ def bam_file():
 def reference_fasta():
     return "tests/data/np_salmoLT2.fasta.gz"
 
-# @pytest.fixture
-# def test_dir():
-#     path = Path("tests/data/test_out")
-#     path.mkdir(exist_ok=True)
-#     return path
+@pytest.fixture
+def test_dir():
+    path = Path("tests/test_out")
+    path.mkdir(exist_ok=True)
+    return path
 
-@pytest.fixture(scope="session")
-def test_dir(tmp_path_factory):
-    test_dir = tmp_path_factory.mktemp("tmp")
-    return test_dir
+# @pytest.fixture(scope="session")
+# def test_dir(tmp_path_factory):
+#     test_dir = tmp_path_factory.mktemp("tmp")
+#     return test_dir
 
 @pytest.fixture
 def out_prefix(bam_file):
@@ -84,8 +90,8 @@ def test_extract_regions(clipped_file, oprs_file, reference_fasta, output_fasta)
                     str(oprs_file), 
                     str(reference_fasta), 
                     str(output_fasta),
-                    minmvirlength=1000, 
-                    maxmvirlength=1000000, 
+                    minmvirlength=4000, 
+                    maxmvirlength=800_000, 
                     allow_complete_scaffolds=True)
     output_fasta_expected = "tests/expected/ERR4552622_100k_mVIRs.fasta"    
     assert filecmp.cmp(output_fasta, output_fasta_expected, shallow=False)

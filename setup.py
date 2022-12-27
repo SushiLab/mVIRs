@@ -13,7 +13,7 @@ class build_ext(_build_ext):
         if isinstance(cythonize, ImportError):
             raise RuntimeError("Failed to import Cython") from cythonize
 
-        self.extensions = cythonize(self.extensions)
+        self.extensions = cythonize(self.extensions, compiler_directives={"linetrace":True})
         for ext in self.extensions: # this fixes a bug with setuptools
             ext._needs_stub = False
 
@@ -28,8 +28,8 @@ PACKAGES = [SRC_DIR]
 
 EXTENSIONS = [
     Extension("mVIRs.oprs_c", [SRC_DIR + "/oprs_c.pyx"], language="c++"),
-    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++"),
-    # Extension("mVIRs.load_fasta", [SRC_DIR + "/load_fasta.pyx"], language="c++")
+    Extension("mVIRs.clipped_reads", [SRC_DIR + "/clipped_reads.pyx"], language="c++"),
+    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++")
 ]
 
 
