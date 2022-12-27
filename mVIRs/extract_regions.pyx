@@ -9,37 +9,6 @@ from libcpp.map cimport map
 
 from operator import itemgetter
 
-import gzip
-
-
-cpdef list read_seq_file(str seq_file):
-    cdef list lines = []
-    cdef str line 
-    cdef int modulo = 2
-    cdef list seq_headers = []
-    cdef Py_ssize_t cnt 
-
-    if seq_file.endswith('gz'):
-        with gzip.open(seq_file, 'rt') as handle:
-            for line in handle:
-                lines.append(line.strip())
-                if len(lines) == 1000:
-                    break
-    else:
-        with open(seq_file) as handle:
-            for line in handle:
-                lines.append(line.strip())
-                if len(lines) == 1000:
-                    break
-
-    if lines[0].startswith('@'):
-        modulo = 4
-    for cnt, line in enumerate(lines):
-        if cnt % modulo == 0:
-            seq_headers.append(line.split()[0])
-
-    return seq_headers
-
 
 cdef inline umap[string, string] load_fasta(string sequence_file):
     cdef umap[string, string] sequences 
