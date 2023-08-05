@@ -86,3 +86,9 @@ class MappedRead:
 
     def __str__(self) -> str:
         return f'MappedRead(name={self.name})'
+
+    def is_single_end(self) -> bool:
+        """
+        Check if the read is single-end.
+        """
+        return True if len(self.mapping) == 1 else False

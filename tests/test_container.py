@@ -10,6 +10,7 @@ class TestMapping(unittest.TestCase):
         self.aln3 = next(self.bam_file)
         self.aln4 = next(self.bam_file)
 
+
     def test_mapping_extended_false(self):
         mapping = Mapping(self.aln1, extended=False)
         self.assertEqual(mapping.rev, False)
@@ -32,18 +33,30 @@ class TestMapping(unittest.TestCase):
 
     def test_mapped_read(self):
         readname = self.aln1.qname.rsplit('/', 1)[0]
-        read = MappedRead(name=readname)
+        read_paired = MappedRead(name=readname)
         for aligned_seg in [self.aln1, self.aln2,
                             self.aln3, self.aln4]:
 
             data_tmp = aligned_seg.qname.rsplit('/', 1)
             readname = data_tmp[0]
             orientation = data_tmp[1]
-            read[orientation] = Mapping(aligned_seg, extended=False)
+            read_paired[orientation] = Mapping(aligned_seg, extended=False)
 
-        self.assertEqual(read.name, "ERR4552622.32")
-        self.assertEqual(len(read.mapping["R1"]), 2)
-        self.assertEqual(len(read.mapping["R2"]), 2)
+        self.assertEqual(read_paired.name, "ERR4552622.32")
+        self.assertEqual(len(read_paired.mapping["R1"]), 2)
+        self.assertEqual(len(read_paired.mapping["R2"]), 2)
+
+    def test_mapped_read_single(self):
+        readname = self.aln1.qname.rsplit('/', 1)[0]
+        read_single = MappedRead(name=readname)
+
+        data_tmp = self.aln1.qname.rsplit('/', 1)
+        readname = data_tmp[0]
+        orientation = data_tmp[1]
+        read_single[orientation] = Mapping(self.aln1, extended=False)
+
+        self.assertEqual(read_single.is_single_end(), True)
+
 
 
 
