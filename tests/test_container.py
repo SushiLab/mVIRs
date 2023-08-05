@@ -2,7 +2,7 @@ from pysam.libcalignmentfile import AlignmentFile
 import unittest
 from mVIRs.containers import MappedRead, Mapping
 
-class TestMapping(unittest.TestCase):
+class TestContainers(unittest.TestCase):
     def setUp(self):
         self.bam_file = AlignmentFile("tests/data/small.sam", "rb")
         self.aln1 = next(self.bam_file)
@@ -56,6 +56,7 @@ class TestMapping(unittest.TestCase):
         read_single[orientation] = Mapping(self.aln1, extended=False)
 
         self.assertEqual(read_single.is_single_end(), True)
+
 
 
 

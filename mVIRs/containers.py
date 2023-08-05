@@ -91,4 +91,4 @@ class MappedRead:
         """
         Check if the read is single-end.
         """
-        return True if len(self.mapping) == 1 else False
+        return True if len(self.mapping) < 2 else False
