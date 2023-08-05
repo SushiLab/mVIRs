@@ -80,3 +80,9 @@ class MappedRead:
 
     def __getitem__(self, orientation: str):
         return self.mapping[orientation]
+
+    def __repr__(self) -> str:
+        return f'MappedRead(name={self.name})'
+
+    def __str__(self) -> str:
+        return f'MappedRead(name={self.name})'
