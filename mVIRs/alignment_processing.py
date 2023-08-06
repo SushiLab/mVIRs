@@ -85,6 +85,7 @@ def get_paired_alignments(read_mappings: Dict[str, MappedRead],
 
     cnt_singleend = 0
     cnt_pairedend = 0
+    score_filtered = {}
 
     for query, alignments in read_mappings.items():
         if alignments.is_single_end():
@@ -92,7 +93,6 @@ def get_paired_alignments(read_mappings: Dict[str, MappedRead],
             continue
         else:
             cnt_pairedend += 1
-            score_filtered = {}
 
             matches = {}
             samematches = []
@@ -133,7 +133,6 @@ def get_paired_alignments(read_mappings: Dict[str, MappedRead],
                 scoreinsertsizesortedmatches = scoreinsertsizesortedmatches + tmpmatch
 
             for samematch in samematches:
-                print(samematch)
                 if samematch.score >= minscore:
                     scoreinsertsizesortedmatches.append(samematch)
 
@@ -142,4 +141,4 @@ def get_paired_alignments(read_mappings: Dict[str, MappedRead],
 
             score_filtered[query] = scoreinsertsizesortedmatches
 
-            return score_filtered
+    return score_filtered
