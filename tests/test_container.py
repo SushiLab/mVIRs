@@ -48,14 +48,9 @@ class TestContainers(unittest.TestCase):
         self.assertEqual(len(read_paired.mapping["R2"]), 2)
 
     def test_mapped_read_single(self):
-        readname = self.aln1.qname.rsplit('/', 1)[0]
+        readname, orientation = self.aln1.qname.rsplit('/', 1)
         read_single = MappedRead(name=readname)
-
-        data_tmp = self.aln1.qname.rsplit('/', 1)
-        readname = data_tmp[0]
-        orientation = data_tmp[1]
         read_single[orientation] = Mapping.from_aligned_segment(self.aln1, extended=False)
-
         self.assertEqual(read_single.is_single_end(), True)
 
 
