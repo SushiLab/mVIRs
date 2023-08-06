@@ -12,8 +12,24 @@ PYSAM_BAM_CSOFT_CLIP = 4
 PYSAM_BAM_CHARD_CLIP = 5
 
 PAlignment = collections.namedtuple('PAlignment',
-                                    'iss, ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
+                                    'iss ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
 SAMLine = collections.namedtuple('SAMLine', 'rev ref rstart rend score cigartuples blocks')
+
+# immutable class
+# class PAlignment:
+
+#     def __init__(self, iss: bool, ref: str, revr1: bool, revr2: bool, score: int, startr1: int, endr1: int, startr2: int, endr2: int, orientation: str):
+#         self.iss = iss
+#         self.ref = ref
+#         self.revr1 = revr1
+#         self.revr2 = revr2
+#         self.score = score
+#         self.startr1 = startr1
+#         self.endr1 = endr1
+#         self.startr2 = startr2
+#         self.endr2 = endr2
+#         self.orientation = orientation
+
 
 def get_read_orientation(rev: bool) -> str:
     """
