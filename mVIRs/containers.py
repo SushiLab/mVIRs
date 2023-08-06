@@ -32,21 +32,44 @@ class Mapping:
     """
 
 
-    def __init__(self, alignment: AlignedSegment, extended: bool = False):
+    def __init__(self, rev, ref, rstart, rend, score,
+                 blocks=None, cigartuples=None):
         """
         Initialize the Mapping object from pysam.AlignedSegment.
+
+        Args:
+            rev (bool): True if the read is mapped in reverse, False otherwise.
+            ref (str): The reference name.
+            rstart (int): The start position of the read on the reference.
+            rend (int): The end position of the read on the reference.
+            score (int): The alignment score.
+            blocks (list): A list of start and end positions of aligned gapless blocks.
+            cigartuples (list): The CIGAR alignment. The alignment is returned as a list of tuples of (operation, length).
         """
 
-        self.rev: bool = True if alignment.is_reverse else False
-        self.ref: str = alignment.reference_name
-        self.rstart: int = alignment.reference_start
-        self.rend: int = alignment.reference_end
-        self.score: int = alignment.get_tag('AS')
-        self.blocks = None
-        self.cigartuples = None
+        self.rev: bool = rev
+        self.ref: str = ref
+        self.rstart: int = rstart
+        self.rend: int = rend
+        self.score: int = score
+        self.blocks: list = cigartuples
+        self.cigartuples: list = blocks
+
+    @classmethod
+    def from_aligned_segment(cls, alignment: AlignedSegment, extended: bool = True):
+        rev: bool = True if alignment.is_reverse else False
+        ref: str = alignment.reference_name
+        rstart: int = alignment.reference_start
+        rend: int = alignment.reference_end
+        score: int = alignment.get_tag('AS')
+        blocks = None
+        cigartuples = None
         if extended:
-            self.blocks: list = alignment.get_blocks()
-            self.cigartuples: list = alignment.cigartuples
+            blocks = alignment.get_blocks()
+            cigartuples = alignment.cigartuples
+
+        return cls(rev, ref, rstart, rend, score,
+                   blocks, cigartuples)
 
     def __repr__(self):
         return f'Mapping(reverse={self.rev}, reference_name={self.ref}, ' \
@@ -92,3 +115,10 @@ class MappedRead:
         Check if the read is single-end.
         """
         return True if len(self.mapping) < 2 else False
+
+    def total_mappings(self) -> int:
+        """
+        Return the total number of mappings for the read.
+        """
+        return sum([len(self.mapping[orientation]) \
+                    for orientation in self.mapping])
