@@ -7,6 +7,27 @@ import pysam
 from .utils import shutdown
 
 
+def index_genome(seq_file: str, output_folder: str) -> None:
+    logging.info(f'Start building bwa index on {seq_file}')
+    # make output folder
+    out_folder = pathlib.Path(output_folder)
+    out_folder.mkdir(parents=True, exist_ok=True)
+    index_path = (pathlib.Path(output_folder) / seq_file.split("/")[-1]).absolute()
+    command = f'bwa index {seq_file} -p {index_path}'
+
+    try:
+        returncode: int = subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e)
+    if returncode != 0:
+        raise(Exception(f'Command: {command} failed with return code {returncode}'))
+
+    logging.info(f'Successfully built index on {seq_file}')
+
+    return index_path
+
+
+
 def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
     """ Takes an AlignedSegment and add percent identity and alignment length as tags
     alignment length = MID
@@ -18,7 +39,7 @@ def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
     :param alignedSegment: The pysam AlignedSegment object
     :return: alignedSegment: The updated pysam AlignedSegment object
     """
-    
+
     # Assuming that if the id tag is present that the other tags are also there.
     if alignedSegment.has_tag('id'):
         return alignedSegment
@@ -35,15 +56,15 @@ def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
     alignedSegment.set_tag('qc', qcov, 'f')
     alignedSegment.set_tag('al', alnlength, 'i')
     return alignedSegment
-    
 
-def align(forward_read_file: str, 
-          reversed_read_file: str, 
-          bwa_ref_name: str, 
-          out_bam_file: str, 
-          threads: int, 
+
+def align(forward_read_file: str,
+          reversed_read_file: str,
+          bwa_ref_name: str,
+          out_bam_file: str,
+          threads: int,
           min_percid: float = 0.97,
-          min_coverage: float = 0, 
+          min_coverage: float = 0,
           min_alength: int = 0):
     """
     Takes two paired end fastq/fasta files and aligns them against a reference genome and reports sorted and filtered alignments.
@@ -73,16 +94,16 @@ def align(forward_read_file: str,
         logging.info(f'\tCommand executed {command}')
 
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-        
+
         # https://github.com/pysam-developers/pysam/issues/939
         save = pysam.set_verbosity(0)
 
         in_bam_file_handle = pysam.AlignmentFile(process.stdout, 'rb')
         if not temp_bam_file_handle:
             temp_bam_file_handle = pysam.AlignmentFile(temp_bam_file, "wb", template=in_bam_file_handle)
-        
+
         pysam.set_verbosity(save)
-        
+
         for record in in_bam_file_handle:
             if record.is_unmapped:
                 continue
