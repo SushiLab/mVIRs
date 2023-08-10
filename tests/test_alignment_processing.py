@@ -5,7 +5,8 @@ from mVIRs.alignment_processing import (
     mapped_reads_from_alignment,
     _calculate_orientation,
     PAlignment,
-    get_paired_alignments
+    get_paired_alignments,
+    _estimate_insert_size
 )
 
 class TestMappedReadsFromAlignment(unittest.TestCase):
@@ -50,3 +51,9 @@ class TestGetPairedReads(unittest.TestCase):
         pe_aln = get_paired_alignments({self.read_name: self.test_case})[self.read_name]
         self.assertEqual(pe_aln[0].iss, 2399276)
         self.assertEqual(pe_aln[0].orientation, 'PAIREDEND')
+
+class TestEstimateInsertSizes(unittest.TestCase):
+
+    def test_estimate_insert_size(self):
+        inserts = [1, 2, 10, 11, 11, 12, 14, 18]
+        self.assertEqual(_estimate_insert_size(inserts, sd=2), (0, 19, 11))
