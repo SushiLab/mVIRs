@@ -28,8 +28,8 @@ class TestContainers(unittest.TestCase):
         self.assertEqual(mapping.rstart, 1)
         self.assertEqual(mapping.rend, 148)
         self.assertEqual(mapping.score, 147)
-        self.assertEqual(mapping.blocks, [(0, 147)])
-        self.assertEqual(mapping.cigartuples, [(1, 148)])
+        self.assertEqual(mapping.blocks, [(1, 148)])
+        self.assertEqual(mapping.cigartuples, [(0, 147)])
 
     def test_mapped_read(self):
         readname = self.aln1.qname.rsplit('/', 1)[0]
