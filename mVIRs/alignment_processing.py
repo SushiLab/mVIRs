@@ -1,3 +1,4 @@
+import pysam
 from pysam.libcalignmentfile import AlignmentFile
 from typing import Dict
 
@@ -26,26 +27,34 @@ def get_read_orientation(rev: bool) -> str:
 def mapped_reads_from_alignment(bam_file : AlignmentFile,
                                 min_coverage : float = 0,
                                 min_alength : int = 0,
-                                extended_info=True) -> dict:
+                                max_lines : int = None,
+                                extended_info = True,
+                                threads: int = 1) -> dict:
     """
     Get all the mapping for all the reads from the BAM file.
 
     Args:
-        bam_file (str): Path to the BAM file.
-        min_coverage (float): Minimum alignment coverage of the read
-                              to be considered mapped.
-        min_alength (int): Minimum alignment length of the read
-                           to be considered mapped.
-        extended_info (bool): If True, the Mapping object will contain
-                              CIGAR and gapless blocks information.
+        bam_file: Path to the BAM file.
+        min_coverage: Minimum alignment coverage of the read
+          to be considered mapped.
+        min_alength: Minimum alignment length of the read
+          to be considered mapped.
+        extended_info: If True, the Mapping object will contain
+          CIGAR and gapless blocks information.
+        threads: Number of threads to use.
 
     Returns:
         dict: A dictionary of MappedRead objects.
     """
-    mapped: dict = {}
-    alignments: AlignmentFile = AlignmentFile(str(bam_file), "rb")
+    mapped = {}
 
-    for alignment in alignments:
+    # https://github.com/pysam-developers/pysam/issues/939
+    save = pysam.set_verbosity(0)
+    alignments = AlignmentFile(str(bam_file), "rb", threads=threads)
+    pysam.set_verbosity(save)
+
+
+    for i, alignment in enumerate(alignments):
 
         # if alignment not eligible
         # dismiss straight away
@@ -60,6 +69,8 @@ def mapped_reads_from_alignment(bam_file : AlignmentFile,
         if readname not in mapped:
             mapped[readname] = MappedRead(name=readname)
         mapped[readname][orientation] = Mapping.from_aligned_segment(alignment, extended=extended_info)
+        if max_lines and i >= max_lines:
+            break
 
     alignments.close()
 
@@ -285,8 +296,8 @@ def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
     """
 
     logging.info('Start OPR finding step')
-    logging.info('Input BAM File:\t{}'.format(out_bam_file))
-    logging.info('Output OPR File:\t{}'.format(opr_file))
+    logging.info('Input BAM File:\t%s', out_bam_file)
+    logging.info('Output OPR File:\t%s', opr_file)
 
     mapped = mapped_reads_from_alignment(out_bam_file, min_coverage=min_coverage,
                                          min_alength=min_alength, extended_info=False)
@@ -297,15 +308,17 @@ def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
     logging.info('Start estimating insert size from paired end alignments.')
     min_insertsize, max_insertsize, median_insertsize = _estimate_insert_size(insert_sizes)
     logging.info('Finished estimating insert size from paired end alignments.')
-    logging.info('Min reasonable insert size:\t{}'.format(min_insertsize))
-    logging.info('Max reasonable insert size:\t{}'.format(max_insertsize))
+    logging.info('Min reasonable insert size:\t%s', min_insertsize)
+    logging.info('Max reasonable insert size:\t%s', max_insertsize)
 
     primary = _calc_primary_paired_alignment(paired, min_insert_size=min_insertsize,
                                              max_insert_size=max_insertsize)
 
     with open(opr_file, 'w') as handle:
         handle.write(
-            '#MIN_REASONABLE_INSERTSIZE={}\n#MAX_REASONABLE_INSERTSIZE={}\n#ESTIMATED_INSERTSIZE={}\n#READNAME\tREFERENCE\tINSERT_SIZE\tR1_ORIENTATION\tR2_ORIENTATION\tBWA_SCORE\tR1_START\tR2_START\tR1_ALNLENGTH\tR2_ALNLENGTH\tREAD_ORIENTATION\n'.format(
+            '#MIN_REASONABLE_INSERTSIZE={}\n#MAX_REASONABLE_INSERTSIZE={}\n#ESTIMATED_INSERTSIZE={}' \
+            '\n#READNAME\tREFERENCE\tINSERT_SIZE\tR1_ORIENTATION\tR2_ORIENTATION\tBWA_SCORE\tR1_START'\
+            '\tR2_START\tR1_ALNLENGTH\tR2_ALNLENGTH\tREAD_ORIENTATION\n'.format(
                 min_insertsize, max_insertsize, median_insertsize))
 
 
@@ -331,6 +344,127 @@ def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
                 continue
 
             if alncnt % 500000 == 0:
-                logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
-        logging.info('Paired inserts processed:\t{}'.format(format(alncnt, ',d')))
+                logging.info('Paired inserts processed:\t%s', format(alncnt, ',d'))
+        logging.info('Paired inserts processed:\t%s', format(alncnt, ',d'))
         logging.info('Finished screening for OPRs and Paired-End inserts with unreasonable insert size.')
+
+
+
+# logging.info('Start clipped reads finding step')
+# logging.info('Input BAM File:\t{}'.format(bam_file))
+# logging.info('Output Clipped File:\t{}'.format(clipped_file))
+
+
+def find_clipped_reads(paired_alignments, clipped_file) -> None:
+    """
+    Find clipped reads in a bam file. The goal of the clipped reads is to find start/end positions of
+    activated prophages. This can be done by looking at cigar string that contain a S.
+    If the S is before a M then this is a START position. If the S is after an M then that is a END
+    position
+    :param bam_file:
+    :param clipped_file:
+    :return:
+    """
+
+    alignments_seen = 0
+    alignments_softclipped = 0
+    alignments_hardclipped = 0
+    PYSAM_BAM_CSOFT_CLIP = 4
+    PYSAM_BAM_CHARD_CLIP = 5
+
+    clipped_reads = defaultdict(list)
+    for insert, ori_2_alignments in paired_alignments.items():
+        for ori, alignments in ori_2_alignments.mapping.items():
+            for alignment in alignments:
+                alignments_seen += 1
+                if alignments_seen % 500000 == 0:
+                    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
+                if len(alignment.cigartuples) > 1:
+                    # 1st number in cigartuple denotes the operation
+                    cigar_operations = set(map(lambda cigar: cigar[0], alignment.cigartuples))
+                    # 4 is code for softclipp=
+                    softclipped = PYSAM_BAM_CSOFT_CLIP in cigar_operations
+                    # 5 is code for hardclip
+                    hardclipped = PYSAM_BAM_CHARD_CLIP in cigar_operations
+
+                    if softclipped:
+                        clip_location = [0, 0]
+                        if alignment.cigartuples[0][0] == PYSAM_BAM_CSOFT_CLIP:
+                            clip_location[0] = 1
+                        if alignment.cigartuples[-1][0] == PYSAM_BAM_CSOFT_CLIP:
+                            clip_location[1] = 1
+
+                        if sum(clip_location) == 2:
+                            # logging.info(f'Insert {insert}/{ori} mapped with softclips in front and end. Ignoring')
+                            continue
+                        alignments_softclipped += 1
+
+                        if clip_location[0] == 1:
+                            direction = '->'
+                            startpos = alignment.blocks[0][0]
+                        else:
+                            direction = '<-'
+                            startpos = alignment.blocks[-1][1]
+                        clipped_reads[(insert, ori)].append(('S', direction, startpos, alignment.ref))
+
+                    if hardclipped and not softclipped:
+                        clip_location = [0, 0]
+                        if alignment.cigartuples[0][0] == PYSAM_BAM_CHARD_CLIP:
+                            clip_location[0] = 1
+                        if alignment.cigartuples[-1][0] == PYSAM_BAM_CHARD_CLIP:
+                            clip_location[1] = 1
+
+                        if sum(clip_location) == 2:
+                            #logging.info(f'Insert {insert}/{ori} mapped with hardclips in front and end. Ignoring')
+                            continue
+
+                        alignments_hardclipped += 1
+
+                        if clip_location[0] == 1:
+                            direction = '->'
+                            startpos = alignment.blocks[0][0]
+                        else:
+                            direction = '<-'
+                            startpos = alignment.blocks[-1][1]
+                        clipped_reads[(insert, ori)].append(('H', direction, startpos, alignment.ref))
+
+    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
+    logging.info(f'Keeping only paired soft/hard-clips and writing unfiltered soft and filtered hard-clips to {clipped_file}.')
+    out_file = open(clipped_file, 'w')
+
+    hardclips_written = 0
+    softclips_written = 0
+    out_file.write('#INSERT\tREADORIENTATION\tHARD/SOFTCLIP\tDIRECTION\tPOSITION\tSCAFFOLD\n')
+    for (insert, ori), clipped_alignments in clipped_reads.items():
+        softclipped = [aln for aln in clipped_alignments if aln[0] == 'S']
+        hardclipped = [aln for aln in clipped_alignments if aln[0] == 'H']
+        if len(softclipped) == 0: # A read with an alignment without softclip. Ignoring
+            continue
+        # there can be multiple hardclips
+        # - Candidate hardclips have to face the opposite direction
+        # - Candidate hardclips also need to face at each other. So the -> needs to have the smaller coordinate
+        # There can me multiple hardclips even after filtering for direction
+        softclipped_ori = softclipped[0][1]
+        softclipped_coordinate = softclipped[0][2]
+        softclipped_ref = softclipped[0][3]
+        hardclipped_filtered = []
+        for hardclip in hardclipped:
+            hardclip_ori = hardclip[1]
+            hardclip_coordinate = hardclip[2]
+            hardclip_ref = hardclip[3]
+            if hardclip_ref != softclipped_ref:
+                continue
+            if softclipped_ori == hardclip_ori:
+                continue
+            if softclipped_ori == '->' and softclipped_coordinate > hardclip_coordinate:
+                continue
+            else:
+                hardclipped_filtered.append(hardclip)
+        hardclips_written = hardclips_written + len(hardclipped_filtered)
+        softclips_written = softclips_written + len(softclipped)
+        for aln in (softclipped + hardclipped_filtered):
+            out_file.write(f'{insert}\t{ori}\t{aln[0]}\t{aln[1]}\t{aln[2]}\t{aln[3]}\n')
+
+
+    out_file.close()
+    logging.info(f'Wrote {format(softclips_written, ",d")} soft and {format(hardclips_written, ",d")} hard-clips.')
