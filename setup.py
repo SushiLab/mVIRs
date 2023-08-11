@@ -13,12 +13,16 @@ class build_ext(_build_ext):
         if isinstance(cythonize, ImportError):
             raise RuntimeError("Failed to import Cython") from cythonize
 
-        self.extensions = cythonize(self.extensions, compiler_directives={"linetrace":True})
+        self.extensions = cythonize(self.extensions,
+                                    compiler_directives=dict(
+                                        linetrace=True,
+                                        language_level="3")
+                                        )
         for ext in self.extensions: # this fixes a bug with setuptools
             ext._needs_stub = False
 
         _build_ext.run(self)
-        
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
