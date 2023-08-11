@@ -8,7 +8,8 @@ from mVIRs.alignment_processing import (
     _calculate_orientation,
     get_paired_alignments,
     _estimate_insert_size,
-    find_oprs
+    find_oprs,
+    find_clipped_reads
 )
 
 class TestMappedReadsFromAlignment(unittest.TestCase):
@@ -72,4 +73,19 @@ class TestFindOprs(unittest.TestCase):
                       min_coverage=0.8, min_alength=45)
 
             with io.open(output_oprs) as out, io.open(self.expected_oprs) as expected:
+                self.assertListEqual(list(out), list(expected))
+
+class TestFindClipped(unittest.TestCase):
+    def setUp(self):
+        self.bam_file = "tests/data/ERR4552622_100k_mVIRs.bam"
+        self.expected_clipped = "tests/expected/ERR4552622_100k_mVIRs.clipped"
+
+    def test_find_clipped(self):
+        mapped = mapped_reads_from_alignment(self.bam_file, min_coverage=0, min_alength=0,
+                                             extended_info=True)
+        with TemporaryDirectory() as tmp:
+            output_clipped = tmp + "/test.clipped"
+            find_clipped_reads(mapped, output_clipped)
+
+            with io.open(output_clipped) as out, io.open(self.expected_clipped) as expected:
                 self.assertListEqual(list(out), list(expected))
