@@ -3,17 +3,17 @@
 
 
 
-  
+
 <p align="center">
 <img src="https://raw.githubusercontent.com/SushiLab/mVIRs/master/pics/mVIRs.png" width="500"  />
 </p>
 
 
 # mVIRs: Localisation of inducible prophages using NGS data
- 
+
 mVIRs is a command-line tool that localizes and extracts genome sequences of inducible prophages in bacterial host genomes using paired-end DNA sequencing data as input. The approach relies on identifying DNA segments that are predicted to exist in a circularized or concatenated form upon induction. To achieve this, mVIRs uses information on the orientation of short, paired-end sequencing (e.g., Illumina) reads that are aligned to the genome of a lysogenic host as a reference. The identified segments can be length-filtered and classified by prediction tools (e.g., [VirSorter2](https://doi.org/10.1186/s40168-020-00990-y), [VirFinder](https://doi.org/10.1186/s40168-017-0283-5), [VIBRANT](https://doi.org/10.1186/s40168-020-00867-0) or [Prophage Hunter](https://doi.org/10.1093/nar/gkz380)), to identify putative prophage candidates.
 
-The tool was developed by Hans-Joachim Ruscheweyh, Mirjam Zünd and Shinichi Sunagawa. It is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html). 
+The tool was developed by Hans-Joachim Ruscheweyh, Mirjam Zünd and Shinichi Sunagawa. It is distributed under [![License GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 If you use **mVIRs**, please cite:
 > [Zünd M, Ruscheweyh HJ, Field CM, Meyer N, Cuenca M, Hoces D, Hardt WD, Sunagawa S. **High throughput sequencing provides exact genomic locations of inducible prophages and accurate phage-to-host ratios in gut microbial strains.** *Microbiome*, 9: 77, 2021.](https://doi.org/10.1186/s40168-021-01033-w)
@@ -39,7 +39,7 @@ The easiest way to install **mVIRs** is to use the conda package manager using t
 ```bash
 # Install dependencies
 
-$ conda create -n mvirs python==3.7 pip bwa samtools pysam -c bioconda 
+$ conda create -n mvirs python==3.7 pip bwa samtools pysam -c bioconda
 $ conda activate mvirs
 $ python -m pip install mvirs
 
@@ -57,15 +57,12 @@ Microbiome (2021). doi:10.1186/s40168-021-01033-w
 Usage: mvirs <command> [options]
 Command:
 
-    index   create index files for reference used in the
-            mvirs oprs routine
-
     oprs    align reads against reference and used clipped
             alignment positions and OPRs to extract potential
             prophages
 
     test    run mVIRs for a public dataset
-  
+
 ```
 
 
@@ -90,41 +87,12 @@ $ mvirs -h
 ## Running mVIRs
 
 
-The `mVIRs` toolkit includes three commands, `index`, `oprs` and `test`. The `index` command takes a reference sequence file as input and builds the reference database files that are needed for the execution of the `oprs` command. The `oprs` command aligns paired-end reads against the reference database to detect so called outward-oriented paired-end reads (OPRs) and uses soft-clipped alignments (clipped reads) to identify the location and extract the sequence of potential prophages. The test function executes `mVIRs` on a test dataset that is downloaded as part of this function.  
-
-### `mvirs index`
-
-This step takes a FASTA-formatted reference sequence file as input and builds an index using the `bwa index` command. This command needs to be executed before running the `oprs` command.
-
-```bash
-$ mvirs index
-
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: 1.1.1
-Reference: Zünd, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome, 9: 77, 2021. doi:10.1186/s40168-021-01033-w
-
-Usage: mvirs index [options]
-
-    Input:
-        -f  FILE   Reference FASTA file. Can be gzipped. [Required]
-        -o  DIR    Output directory. [Optional]
-
-```
-
-**Example**
-
-```bash
-mvirs index reference.fasta
-```
-
+The `mVIRs` toolkit includes two commands, `oprs` and `test`. The `oprs` command  that are needed for the execution of the `oprs` command. The `oprs` command takes a reference sequence file as input and builds the reference database files. After that, it aligns paired-end reads against the reference database to detect so called outward-oriented paired-end reads (OPRs) and uses soft-clipped alignments (clipped reads) to identify the location and extract the sequence of potential prophages. The test function executes `mVIRs` on a test dataset that is downloaded as part of this function.
 
 
 ### `mvirs oprs`
 
-This step takes paired-end read files as input (one for each forward and reverse reads) and the name of the reference database produced by `mvirs index`. It aligns the reads against the reference database and uses the alignment information to identify potential prophage sequences within the reference genome using coverage information from OPRS and clipped reads.
+This step takes a FASTA-formatted reference sequence file as input and builds an index using the `bwa index` command. Then it takes paired-end read files as input (one for each forward and reverse reads) and aligns the reads against the reference database and uses the alignment information to identify potential prophage sequences within the reference genome using coverage information from OPRS and clipped reads.
 
 
 ```bash
@@ -140,18 +108,18 @@ Microbiome, 9: 77, 2021. doi:10.1186/s40168-021-01033-w
 Usage: mvirs oprs [options]
 
     Input:
+        -ref  FILE   Reference FASTA file. Can be gzipped. [Required]
         -f  FILE   Forward reads file. FastA/Q. Can be gzipped. [Required]
         -r  FILE   Reverse reads file. FastA/Q. Can be gzipped. [Required]
-        -db FILE   Reference database file (prefix) created by mvirs index. [Required]
 
     Output:
         -o  PATH   Prefix for output files. [Required]
 
     Options:
-        -t  INT    Number of threads. [1] 
+        -t  INT    Number of threads. [1]
         -ml INT    Minimum sequence length for extraction. [4000]
         -ML INT    Maximum sequence length for extraction. [800000]
-        -m         Allow full contigs/scaffolds/chromosomes to be reported 
+        -m         Allow full contigs/scaffolds/chromosomes to be reported
 	           (When OPRs and clipped reads are found at the start and end of contigs/scaffolds/chromosomes)
 
 ```
@@ -213,7 +181,7 @@ $ mvirs test ~/mVIRs_test/
 
 ### mvirs.output.fasta
 
-The `mvirs.output.fasta` is a FASTA-formatted file with the potential prophage sequences that were extracted from the reference genome. The FASTA headers include information on the 
+The `mvirs.output.fasta` is a FASTA-formatted file with the potential prophage sequences that were extracted from the reference genome. The FASTA headers include information on the
 
 - source scaffold
 - start and end coordinates of the extracted sequence
@@ -234,12 +202,12 @@ ATTCGTAATGCGAAGGTCGTAGGTTCGACTCCTATTATCGGCACCAGTTAAATCAAATACTTAC...
 ```
 
 
-### mvirs.output.oprs 
+### mvirs.output.oprs
 
 The `mvirs.output.oprs` file lists the inserts of paired-end reads that align either with an unusual orientation (e.g. OPR or SAME) or have an unexpected large insert size (IPR) when compared to the estimated insert size (See section [Concepts](#concepts) for the definition of OPR, SAME and IPR)
 
 The columns of the file are:
-   
+
 - `INSERTNAME`: The name of the insert
 - `REFERENCE`: Name of the scaffold/genomic region of the reference sequence
 - `INSERT_SIZE`: The size of the insert
@@ -277,7 +245,7 @@ The `mvirs.output.clipped` file contains the name, orientation and position of a
 The columns of the file are:
 
 - `INSERTNAME`: Name of the insert
-- `READ ORIENTATION`: R1 or R2 
+- `READ ORIENTATION`: R1 or R2
 - `HARD/SOFTCLIP`: Reported clip type by BWA (Soft --> longer part of the alignment. Hard --> shorter part of the alignment)
 - `DIRECTION`: Direction of the alignment with respect to the reference sequence
 - `POSITION`: Leftmost coordinate of the alignment on the reference sequence
@@ -299,7 +267,7 @@ An example output is below:
 
 
 
-  
+
 
 ## Concepts
 
@@ -327,7 +295,7 @@ R2                        -------->
 REFERENCE ---------------------------------------
 R1              -------->
 R2                        -------->
- 
+
 ```
 
 
@@ -335,7 +303,7 @@ This tool reports IPRs with unreasonable insert sizes and OPRs.
 
 ## Algorithm
 
-The algorithm for potential prophage genome detection consists of three steps.The first two steps scan the alignment file (`mvirs.output.bam`) and report OPRs and clipped alignments. The last step uses the information generated in the first two steps to detect potential prophages and report their sequences as a FASTA formatted output file. 
+The algorithm for potential prophage genome detection consists of three steps.The first two steps scan the alignment file (`mvirs.output.bam`) and report OPRs and clipped alignments. The last step uses the information generated in the first two steps to detect potential prophages and report their sequences as a FASTA formatted output file.
 
 
 ### 1. Read Alignment Orientation
@@ -355,20 +323,20 @@ The alignment of a read is clipped if it can not be fully aligned against the re
 	```
 	REFERENCE ---------------------------------------
 	READ      ---                                 ---
-	          456                                 123  
+	          456                                 123
 	```
-		
-	Similarly, if a read originates from a circularized phage genome that is also encoded as a prophage in the reference, the reads will align at the end and the beginning of the integrated prophage genome:  	
- 
+
+	Similarly, if a read originates from a circularized phage genome that is also encoded as a prophage in the reference, the reads will align at the end and the beginning of the integrated prophage genome:
+
 	```
 	# Phage genome integrated in reference chromosome (denoted as P)
 	REFERENCE ----------------PPPPPPPPPPP------------
 	READ                      ---     ---
 	                          456     123
 	```
-	
 
-2. The reference genome contains an element (e.g., an integrated phage), but the read originates from a genome of a naive host (i.e., without the prophage). In the example below, the read originates from a naive host that does not contain the prophage genome (denoted as P), and thus flanks the phage integration site. 
+
+2. The reference genome contains an element (e.g., an integrated phage), but the read originates from a genome of a naive host (i.e., without the prophage). In the example below, the read originates from a naive host that does not contain the prophage genome (denoted as P), and thus flanks the phage integration site.
 
 	```
 	REFERENCE ----------------PPPPPPPP---------------
