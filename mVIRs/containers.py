@@ -52,8 +52,8 @@ class Mapping:
         self.rstart: int = rstart
         self.rend: int = rend
         self.score: int = score
-        self.blocks: list = cigartuples
-        self.cigartuples: list = blocks
+        self.blocks: list = blocks
+        self.cigartuples: list = cigartuples
 
     @classmethod
     def from_aligned_segment(cls, alignment: AlignedSegment, extended: bool = True):
