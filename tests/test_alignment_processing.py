@@ -1,20 +1,22 @@
 import unittest
+from tempfile import TemporaryDirectory
+import io
 
 from mVIRs.containers import MappedRead, Mapping
 from mVIRs.alignment_processing import (
     mapped_reads_from_alignment,
     _calculate_orientation,
-    PAlignment,
     get_paired_alignments,
-    _estimate_insert_size
+    _estimate_insert_size,
+    find_oprs
 )
 
 class TestMappedReadsFromAlignment(unittest.TestCase):
     def setUp(self) -> None:
-        self.bam_file = "tests/data/small.sam"
+        self.small_bam = "tests/data/small.sam"
 
     def test_mapped_reads_from_alignment(self):
-        mapped = mapped_reads_from_alignment(self.bam_file)
+        mapped = mapped_reads_from_alignment(self.small_bam)
         self.assertEqual(len(mapped["ERR4552622.32"]["R1"]), 2)
         self.assertEqual(len(mapped["ERR4552622.13"]["R2"]), 1)
 
@@ -57,3 +59,17 @@ class TestEstimateInsertSizes(unittest.TestCase):
     def test_estimate_insert_size(self):
         inserts = [1, 2, 10, 11, 11, 12, 14, 18]
         self.assertEqual(_estimate_insert_size(inserts, sd=2), (0, 19, 11))
+
+class TestFindOprs(unittest.TestCase):
+    def setUp(self) -> None:
+        self.bam_file = "tests/data/ERR4552622_100k_mVIRs.bam"
+        self.expected_oprs = "tests/expected/ERR4552622_100k_mVIRs.oprs"
+
+    def test_find_oprs(self):
+        with TemporaryDirectory() as tmp:
+            output_oprs = tmp + "/test.oprs"
+            find_oprs(self.bam_file, output_oprs,
+                      min_coverage=0.8, min_alength=45)
+
+            with io.open(output_oprs) as out, io.open(self.expected_oprs) as expected:
+                self.assertListEqual(list(out), list(expected))
