@@ -353,6 +353,16 @@ def find_oprs(out_bam_file, opr_file, min_coverage, min_alength) -> None:
 # logging.info('Start clipped reads finding step')
 # logging.info('Input BAM File:\t{}'.format(bam_file))
 # logging.info('Output Clipped File:\t{}'.format(clipped_file))
+def check_clipping(alignment, clip_type):
+    clip_location = [0, 0]
+    cigar_tuples = alignment.cigartuples
+
+    if cigar_tuples[0][0] == clip_type:
+        clip_location[0] = 1
+    if cigar_tuples[-1][0] == clip_type:
+        clip_location[1] = 1
+
+    return clip_location
 
 
 def find_clipped_reads(paired_alignments, clipped_file) -> None:
@@ -378,7 +388,9 @@ def find_clipped_reads(paired_alignments, clipped_file) -> None:
             for alignment in alignments:
                 alignments_seen += 1
                 if alignments_seen % 500000 == 0:
-                    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
+                    logging.info('%s - %s - %s | Alignments - Softclips - Hardclips',
+                                 format(alignments_seen, ",d"), format(alignments_softclipped, ",d"),
+                                 format(alignments_hardclipped, ",d"))
                 if len(alignment.cigartuples) > 1:
                     # 1st number in cigartuple denotes the operation
                     cigar_operations = set(map(lambda cigar: cigar[0], alignment.cigartuples))
@@ -388,48 +400,31 @@ def find_clipped_reads(paired_alignments, clipped_file) -> None:
                     hardclipped = PYSAM_BAM_CHARD_CLIP in cigar_operations
 
                     if softclipped:
-                        clip_location = [0, 0]
-                        if alignment.cigartuples[0][0] == PYSAM_BAM_CSOFT_CLIP:
-                            clip_location[0] = 1
-                        if alignment.cigartuples[-1][0] == PYSAM_BAM_CSOFT_CLIP:
-                            clip_location[1] = 1
-
-                        if sum(clip_location) == 2:
-                            # logging.info(f'Insert {insert}/{ori} mapped with softclips in front and end. Ignoring')
+                        clip_location = check_clipping(alignment, PYSAM_BAM_CSOFT_CLIP)
+                        if clip_location == [1, 1]:
                             continue
                         alignments_softclipped += 1
+                        code = "S"
 
-                        if clip_location[0] == 1:
-                            direction = '->'
-                            startpos = alignment.blocks[0][0]
-                        else:
-                            direction = '<-'
-                            startpos = alignment.blocks[-1][1]
-                        clipped_reads[(insert, ori)].append(('S', direction, startpos, alignment.ref))
-
-                    if hardclipped and not softclipped:
-                        clip_location = [0, 0]
-                        if alignment.cigartuples[0][0] == PYSAM_BAM_CHARD_CLIP:
-                            clip_location[0] = 1
-                        if alignment.cigartuples[-1][0] == PYSAM_BAM_CHARD_CLIP:
-                            clip_location[1] = 1
-
-                        if sum(clip_location) == 2:
-                            #logging.info(f'Insert {insert}/{ori} mapped with hardclips in front and end. Ignoring')
+                    elif hardclipped and not softclipped:
+                        clip_location = check_clipping(alignment, PYSAM_BAM_CHARD_CLIP)
+                        if clip_location == [1, 1]:
                             continue
-
                         alignments_hardclipped += 1
+                        code = "H"
 
-                        if clip_location[0] == 1:
-                            direction = '->'
-                            startpos = alignment.blocks[0][0]
-                        else:
-                            direction = '<-'
-                            startpos = alignment.blocks[-1][1]
-                        clipped_reads[(insert, ori)].append(('H', direction, startpos, alignment.ref))
+                    else:
+                        continue
 
-    logging.info(f'{format(alignments_seen, ",d")} - {format(alignments_softclipped, ",d")} - {format(alignments_hardclipped, ",d")} | Alignments - Softclips - Hardclips')
-    logging.info(f'Keeping only paired soft/hard-clips and writing unfiltered soft and filtered hard-clips to {clipped_file}.')
+
+                    direction = '->' if clip_location[0] == 1 else '<-'
+                    startpos = alignment.blocks[0][0] if clip_location[0] == 1 else alignment.blocks[-1][1]
+                    clipped_reads[(insert, ori)].append((code, direction, startpos, alignment.ref))
+
+    logging.info('%s - %s - %s | Alignments - Softclips - Hardclips',
+                 format(alignments_seen, ",d"), format(alignments_softclipped, ",d"),
+                 format(alignments_hardclipped, ",d"))
+    logging.info('Keeping only paired soft/hard-clips and writing unfiltered soft and filtered hard-clips to %s.', clipped_file)
     out_file = open(clipped_file, 'w')
 
     hardclips_written = 0
