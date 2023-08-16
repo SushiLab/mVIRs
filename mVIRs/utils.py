@@ -31,3 +31,10 @@ def check_sequences(r1_filepath, r2_filepath, n_headers=250):
         counter += 1
         if counter == n_headers:
             break
+
+def load_fasta(fasta_filepath, out_type='dict'):
+    with FastxFile(fasta_filepath) as f:
+        if out_type == 'dict':
+            fasta = {entry.name: entry.sequence for entry in f}
+
+    return fasta
