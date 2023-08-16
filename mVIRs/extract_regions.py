@@ -143,6 +143,8 @@ def filter_singletons(soft_clip_positions):
                                                                          reverse=True):
         if softclip_count > 1:
             filtered_soft_clip[(softclip_position, softclip_scaffold)] = softclip_count
+        elif softclip_count <= 1:
+            break
 
     return filtered_soft_clip
 
@@ -185,23 +187,26 @@ def extract_regions(
     tmp_sum = sum(soft_clipped_positions.values())
     upd_cnt = len(updated_soft_clipped_positions)
     upd_sum = sum(updated_soft_clipped_positions.values())
+    upd_cnt_percentage = upd_cnt * 100.0 / tmp_cnt
+    upd_sum_percentage = upd_sum * 100.0 / tmp_sum
+
 
     logging.info(f'Denoising soft clipped reads finished. '
-                 f'{upd_cnt} ({int(upd_cnt * 100.0 / tmp_cnt)}%) '
-                 f'positions from {tmp_sum} ({int(upd_sum * 100.0 / tmp_sum)}%) '
+                 f'{upd_cnt} ({upd_cnt_percentage:.0f}%) '
+                 f'positions from {tmp_sum} ({upd_sum_percentage:.0f}%) '
                  'reads were kept.')
 
     # Removing singletons
 
     filtered_soft_clipped_positions = filter_singletons(updated_soft_clipped_positions)
 
-    soft_clip_percentage = int(len(filtered_soft_clipped_positions) * 100.0 / tmp_cnt)
+    filtered_soft_clip_percentage = len(filtered_soft_clipped_positions) * 100.0 / upd_cnt
     reads = sum(filtered_soft_clipped_positions.values())
-    reads_percentage = int(reads * 100.0 / tmp_sum)
+    reads_percentage = reads * 100.0 / upd_sum
 
-    logging.info(f'Removing singleton positions finished. {len(soft_clipped_positions)} '
-                 f'({soft_clip_percentage}%) positions from {reads} '
-                 f'({reads_percentage}%) reads were kept.')
+    logging.info(f'Removing singleton positions finished. {len(filtered_soft_clipped_positions)} '
+                 f'({filtered_soft_clip_percentage:.0f}%) positions from {reads} '
+                 f'({reads_percentage:.0f}%) reads were kept.')
 
     # Pair hard & soft clips
 
