@@ -10,13 +10,12 @@ import urllib.response
 from .alignment import index_genome, align
 from .utils import check_sequences, shutdown, startup
 
-from mVIRs import (
+from mVIRs.oprs import (
     find_clipped_reads,
     find_oprs,
-    extract_regions
 )
 
-# from .legacy import extract_regions
+from mVIRs.extract_regions import extract_regions
 
 VERSION = '1.1.1'
 
