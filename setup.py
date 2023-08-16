@@ -30,11 +30,11 @@ def read(fname):
 SRC_DIR = "mVIRs"
 PACKAGES = [SRC_DIR]
 
-EXTENSIONS = [
-    Extension("mVIRs.oprs_c", [SRC_DIR + "/oprs_c.pyx"], language="c++"),
-    Extension("mVIRs.clipped_reads", [SRC_DIR + "/clipped_reads.pyx"], language="c++"),
-    Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++")
-]
+# EXTENSIONS = [
+#     Extension("mVIRs.oprs_c", [SRC_DIR + "/oprs_c.pyx"], language="c++"),
+#     Extension("mVIRs.clipped_reads", [SRC_DIR + "/clipped_reads.pyx"], language="c++"),
+#     Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++")
+# ]
 
 
 def read(fname):
@@ -43,7 +43,7 @@ install_requires = ['pysam']
 setup_requires = ['cython', 'pysam']
 long_description = read('README.md')
 setup(
-    ext_modules=EXTENSIONS,
+    # ext_modules=EXTENSIONS,
     name = "mVIRs",
     version = "1.1.1",
     author = "Hans-Joachim Ruscheweyh",
