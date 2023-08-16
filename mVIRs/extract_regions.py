@@ -4,7 +4,7 @@ from mVIRs.utils import load_fasta
 from operator import itemgetter
 
 
-def read_clipped(clipped_file: str):
+def read_clipped_file(clipped_file: str):
     """
     Reads clipped file.
 
@@ -132,7 +132,7 @@ def denoise_softclips(soft_clipped_positions, softclip_range: int):
             denoised_soft_clip_pos.setdefault(winner, 0)
             denoised_soft_clip_pos[winner] += softclip_count
 
-        return denoised_soft_clip_pos
+    return denoised_soft_clip_pos
 
 
 def filter_singletons(soft_clip_positions):
@@ -167,8 +167,7 @@ def extract_regions(
 
     logging.info('Finding potential viruses in the genome')
 
-    reference_header_2_sequence = load_fasta(reference_fasta_file)
-    clipped_reads, soft_clipped_positions = read_clipped(clipped_file)
+    clipped_reads, soft_clipped_positions = read_clipped_file(clipped_file)
     soft_cnt = len(soft_clipped_positions)
     reads_sum = sum(soft_clipped_positions.values())
 
@@ -220,6 +219,7 @@ def extract_regions(
 
 
     opr_supported_start_ends = {}
+    reference_sequences_dict = load_fasta(reference_fasta_file)
 
     for (hsp1, hsp2, hsscaffold), hscnt in soft_to_hardclip_pairs.items():
         opr_supported_start_ends[(hsp1, hsp2, hsscaffold)] = (hscnt, 0)
@@ -234,8 +234,8 @@ def extract_regions(
                 if delta <= max_reasonable_insert_size:
                     distances[(hsp1, hsp2, hsscaffold, hscnt)] = delta
 
-        if len(distances) > 0:
-            max_hscnt = max([distance[3] for distance in distances.keys()])
+        if distances:
+            max_hscnt = max(distances, key=lambda x: x[3])[3]
             filtered_distances = {distance:insert_size for (distance,insert_size) in distances.items() if distance[3] == max_hscnt}
             if len(filtered_distances) == 1:
                 winner = tuple(filtered_distances.keys())[0]
@@ -253,7 +253,7 @@ def extract_regions(
             continue
 
         ## filtering rule 3: length relative to scaffold
-        scaffold_length = len(reference_header_2_sequence[winner[2]])
+        scaffold_length = len(reference_sequences_dict[winner[2]])
         if not allow_complete_scaffolds:
             if scaffold_length * 0.99 <  length:
                 continue
@@ -306,9 +306,10 @@ def extract_regions(
         if not found:
             ref_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
 
+
     with open(output_fasta_file, 'w') as outhandle:
          for (start, end, scaffold), (hs_cnt, opr_cnt) in ref_opr_supported_start_ends.items():
-            scaffold_sequence = reference_header_2_sequence[scaffold]
+            scaffold_sequence = reference_sequences_dict[scaffold]
             scaffold_length = len(scaffold_sequence)
             subsequence = scaffold_sequence[start : end + 1]
             scaffold_coverage = round(100.0 * len(subsequence) / scaffold_length, 6)
