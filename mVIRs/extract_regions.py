@@ -287,7 +287,6 @@ def extract_regions(
         if (opr_cnt + hs_cnt) < mincombcount:
             break
 
-        updated_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
     opr_supported_start_ends = updated_opr_supported_start_ends
     logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
 
