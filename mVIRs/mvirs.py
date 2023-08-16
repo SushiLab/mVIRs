@@ -53,7 +53,12 @@ def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_n
     find_clipped_reads(out_bam_file, clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)
     extract_regions(clipped_file, opr_file, reference_genome, output_fasta_file,
-                    minmvirlength=minlength_report, maxmvirlength=maxlength_report, allow_complete_scaffolds=allow_fl_report)
+                    min_length=minlength_report, max_length=maxlength_report,
+                    allow_complete_scaffolds=allow_fl_report)
+
+    # remove bwa index files
+    for suffix in ['.amb', '.ann', '.bwt', '.pac', '.sa']:
+        os.remove(bwa_ref_name + suffix)
 
 class CapitalisedHelpFormatter(argparse.HelpFormatter):
     def add_usage(self, usage, actions, groups, prefix=None):
