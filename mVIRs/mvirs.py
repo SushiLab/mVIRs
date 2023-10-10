@@ -2,14 +2,12 @@ import argparse
 import logging
 import os
 import pathlib
-import subprocess
 import sys
-import urllib.request
-import urllib.response
 
 from .alignment import index_genome, align
 from .utils import check_sequences, shutdown, startup
 
+from mVIRs import add_info
 from mVIRs.oprs import (
     find_clipped_reads,
     find_oprs,
@@ -17,7 +15,7 @@ from mVIRs.oprs import (
 
 from mVIRs.extract_regions import extract_regions
 
-VERSION = '1.1.1'
+
 
 
 
@@ -58,7 +56,7 @@ def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_n
 
     # remove bwa index files
     for suffix in ['.amb', '.ann', '.bwt', '.pac', '.sa']:
-        os.remove(bwa_ref_name + suffix)
+        os.remove(bwa_ref_name.with_suffix(suffix))
 
 class CapitalisedHelpFormatter(argparse.HelpFormatter):
     def add_usage(self, usage, actions, groups, prefix=None):
@@ -73,13 +71,8 @@ def check_positive(value):
 
 def oprs():
 
-    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.', usage=f'''
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: {VERSION}
-Reference: Zünd, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome (2021). doi:10.1186/s40168-021-01033-w
+    parser = argparse.ArgumentParser(description='Align reads against a reference and find OPRs and IPRs.',
+                                     usage=f'''{add_info}
 
 Usage: mvirs oprs [options]
 
@@ -99,7 +92,7 @@ Usage: mvirs oprs [options]
                    (When OPRs and clipped reads are found at the start and
                    end of contigs/scaffolds/
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
-    parser.add_argument('-ref', action='store', help='Reference FastA file. Can be gzipped', required=True)
+    parser.add_argument('-ref', action='store', help='Reference FASTA file. Can be gzipped', required=True)
     parser.add_argument('-f', action='store', help='Forward reads file. Can be gzipped', required=True, dest='forward')
     parser.add_argument('-r', action='store', help='Reverse reads file. Can be gzipped', required=True, dest='reverse')
 
@@ -148,90 +141,19 @@ Usage: mvirs oprs [options]
                   min_length, max_length, allow_fl_report, threads)
 
 
-def test():
-    parser = argparse.ArgumentParser(description='Run mVIRs on a public dataset', usage=f'''
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: {VERSION}
-Reference: Zünd, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome (2021). doi:10.1186/s40168-021-01033-w
-Usage: mvirs test [options]
-
-    Input:
-        -o  PATH   Output folder [Required]
-    ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
-    parser.add_argument('-o', action='store', help='Output folder', required=True)
-    try:
-        args = parser.parse_args(sys.argv[2:])
-    except:
-        shutdown(1)
-    output_folder = pathlib.Path(args.o)
-    # make output folder
-
-    output_folder.mkdir(parents=True, exist_ok=True)
-    #download reads/ref
-    logging.info('Downloading reference and read files (22MB)')
-    remote_r1_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//ERR4552622_100k_1.fastq.gz'
-    local_r1_file = str(output_folder) + '/ERR4552622_100k_1.fastq.gz'
-    remote_r2_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//ERR4552622_100k_2.fastq.gz'
-    local_r2_file = str(output_folder)+ '/ERR4552622_100k_2.fastq.gz'
-    remote_reference_file = 'https://sunagawalab.ethz.ch/share/MVIRS_TEST//np_salmoLT2.fasta.gz'
-    local_reference_file = str(output_folder) + '/np_salmoLT2.fasta.gz'
-    urllib.request.urlretrieve(remote_r1_file, local_r1_file)
-    urllib.request.urlretrieve(remote_r2_file, local_r2_file)
-    urllib.request.urlretrieve(remote_reference_file, local_reference_file)
-    logging.info('Finished downloading')
-    logging.info('Building mVIRs index')
-    # build index
-    command = f'bwa index {local_reference_file}'
-
-    try:
-        returncode: int = subprocess.check_call(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise Exception(e)
-    if returncode != 0:
-        raise(Exception(f'Command: {command} failed with return code {returncode}'))
-        shutdown(1)
-    logging.info(f'Successfully built index on {local_reference_file}')
-    # run mvirs
-    logging.info('Run mVIRs test')
-    forward_read_file = local_r1_file
-    reversed_read_file = local_r2_file
-
-    out_bam_file = str(output_folder) + '/ERR4552622_100k_mVIRs.bam'
-    bwa_ref_name = local_reference_file
-    opr_file = str(output_folder) + '/ERR4552622_100k_mVIRs.oprs'
-    clipped_file = str(output_folder) + '/ERR4552622_100k_mVIRs.clipped'
-    output_fasta_file = str(output_folder) + '/ERR4552622_100k_mVIRs.fasta'
-    _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_name, local_reference_file,
-                  opr_file, clipped_file, output_fasta_file)
-
-
 def main():
     startup()
 
     parser = argparse.ArgumentParser(
-        description='Bioinformatic toolkit for finding prophages in sequencing data', usage=f'''
-
-Program: mVIRs - Localisation of inducible prophages using NGS data
-Version: {VERSION}
-Reference: Zünd, Ruscheweyh, et al.
-High throughput sequencing provides exact genomic locations of inducible
-prophages and accurate phage-to-host ratios in gut microbial strains.
-Microbiome (2021). doi:10.1186/s40168-021-01033-w
+        description='Bioinformatic toolkit for finding prophages in sequencing data',
+        usage=f'''{add_info}
 
 Usage: mvirs <command> [options]
 Command:
 
-    index   create index files for reference used in the
-            mvirs oprs routine
-
     oprs    align reads against reference and used clipped
             alignment positions and OPRs to extract potential
             prophages
-
-    test    run mVIRs for a public dataset
 
     ''', formatter_class=CapitalisedHelpFormatter,add_help=False)
 
@@ -241,8 +163,6 @@ Command:
 
     if args.command == 'oprs':
         oprs()
-    elif args.command == 'test':
-        test()
     else:
         print('Unrecognized command')
         parser.print_usage()

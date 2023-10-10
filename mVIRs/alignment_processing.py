@@ -7,7 +7,7 @@ from .containers import MappedRead, Mapping
 from collections import namedtuple, defaultdict
 from itertools import product
 import logging
-from typing import Dict, Tuple, List
+from typing import Dict, List
 
 PAlignment = namedtuple('PAlignment',
                         'iss ref revr1 revr2 score startr1 endr1 startr2 endr2 orientation')
@@ -438,8 +438,10 @@ def find_clipped_reads(paired_alignments: Dict[str, MappedRead],
         None
     """
 
+    # pysam operations
     PYSAM_BAM_CSOFT_CLIP = 4
     PYSAM_BAM_CHARD_CLIP = 5
+    # counters
     alignments_seen = 0
     alignments_softclipped = 0
     alignments_hardclipped = 0
