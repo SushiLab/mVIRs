@@ -97,11 +97,9 @@ def align(forward_read_file: str,
 
         # https://github.com/pysam-developers/pysam/issues/939
         save = pysam.set_verbosity(0)
-
         in_bam_file_handle = pysam.AlignmentFile(process.stdout, 'rb')
         if not temp_bam_file_handle:
             temp_bam_file_handle = pysam.AlignmentFile(temp_bam_file, "wb", template=in_bam_file_handle)
-
         pysam.set_verbosity(save)
 
         for record in in_bam_file_handle:

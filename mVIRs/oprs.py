@@ -5,7 +5,6 @@ import pysam
 from typing import Dict, Generator, List, Tuple, DefaultDict
 import statistics
 
-
 debug = False
 
 PYSAM_BAM_CSOFT_CLIP = 4
@@ -43,7 +42,9 @@ def get_read_orientation(rev: bool) -> str:
         return 'forward'
 
 def insertize_bamfile_by_name(bam_file, max_sam_lines: int = -1, min_coverage: float = 0.0, min_alength: int = 0, need_extended = True):
-    alignments: pysam.libcalignmentfile.AlignmentFile = pysam.AlignmentFile(str(bam_file), "rb")
+    save = pysam.set_verbosity(0)
+    alignments = pysam.AlignmentFile(str(bam_file), "rb")
+    pysam.set_verbosity(save)
 
     current_name = None
     current_insert = collections.defaultdict(list)
@@ -91,10 +92,7 @@ def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]
     :param insert2alignments:
     :return:
     """
-
-    cnter: Counter = collections.Counter()
     insertsizes: List[int] = []
-    import pprint
 
     alignments: List[PAlignment]
     for (_, alignments) in _generate_paired_alignments(insert2alignments):
