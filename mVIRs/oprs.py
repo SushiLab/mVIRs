@@ -49,8 +49,11 @@ def insertize_bamfile_by_name(bam_file, max_sam_lines: int = -1, min_coverage: f
     current_name = None
     current_insert = collections.defaultdict(list)
 
-
     for alignment in alignments:
+        # filter first, avoid unnecessary operations
+        if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
+            continue
+        # store data in data structures
         data_tmp = alignment.qname.rsplit('/', 1)
         readname = data_tmp[0]
         orientation = data_tmp[1]
@@ -64,8 +67,7 @@ def insertize_bamfile_by_name(bam_file, max_sam_lines: int = -1, min_coverage: f
         if need_extended:
             blocks: list = alignment.get_blocks()
             cigartuples: list = alignment.cigartuples
-        if not (alignment.get_tag('al') >= min_alength and alignment.get_tag('qc') >= min_coverage):
-            continue
+
         samline = SAMLine(rev=reverse, ref=refname, rstart=refstart, rend=refend, score=ascore, cigartuples=cigartuples, blocks=blocks)
 
         if not current_name:
@@ -78,12 +80,8 @@ def insertize_bamfile_by_name(bam_file, max_sam_lines: int = -1, min_coverage: f
             current_insert = collections.defaultdict(list)
             current_insert[orientation].append(samline)
 
-
-
     if len(current_insert) != 0:
         yield current_name, current_insert
-
-
 
 
 def _estimate_insert_size(insert2alignments: Dict[str, Dict[str, List[SAMLine]]]) -> Tuple[int, int, int]:
