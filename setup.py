@@ -31,7 +31,10 @@ SRC_DIR = "mVIRs"
 PACKAGES = [SRC_DIR]
 
 EXTENSIONS = [
-    Extension("mVIRs.extract_utils", [SRC_DIR + "/extract_utils.pyx"], language="c++"),
+    Extension("mVIRs.extract_utils", [SRC_DIR + "/extract_utils.pyx"], language="c++",
+              define_macros=[('CYTHON_TRACE', '1'), ('CYTHON_TRACE_NOGIL', '1')],
+                extra_compile_args=['-O3', '-std=c++11']),
+
 #     Extension("mVIRs.clipped_reads", [SRC_DIR + "/clipped_reads.pyx"], language="c++"),
 #     Extension("mVIRs.extract_regions", [SRC_DIR + "/extract_regions.pyx"], language="c++")
 ]
