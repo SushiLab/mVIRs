@@ -2,6 +2,51 @@ import logging
 
 from mVIRs.utils import load_fasta
 from operator import itemgetter
+from dataclasses import dataclass
+
+@dataclass
+class ClippedRead:
+    """
+    Class for clipped reads.
+
+    Args:
+        insert (str): Insert.
+        orientation (str): Orientation.
+        clip_type (str): Clip type.
+        direction (str): Direction.
+        position (int): Position.
+        scaffold (str): Scaffold.
+    """
+    insert: str
+    orientation: str
+    clip_type: str
+    direction: str
+    position: int
+    scaffold: str
+
+    def __str__(self):
+        return f'{self.insert}\t{self.orientation}\t{self.clip_type}\t{self.direction}\t{self.position}\t{self.scaffold}'
+
+    @classmethod
+    def from_line(cls, line: str):
+        """
+        Creates ClippedRead object from line.
+
+        Args:
+            line (str): Line.
+
+        Returns:
+            ClippedRead: ClippedRead object.
+        """
+        splits = line.strip().split()
+        insert = splits[0]
+        orientation = splits[1]
+        clip_type = splits[2]
+        direction = splits[3]
+        position = int(splits[4])
+        scaffold = splits[5]
+
+        return cls(insert, orientation, clip_type, direction, position, scaffold)
 
 
 def read_clipped_file(clipped_file: str):
@@ -18,20 +63,13 @@ def read_clipped_file(clipped_file: str):
         for line in handle:
             if line.startswith('#'):
                 continue
-            splits = line.strip().split()
-            splits = line.strip().split()
-            insert = splits[0]
-            orientation = splits[1]
-            clip_type = splits[2]
-            direction = splits[3]
-            position = int(splits[4])
-            scaffold = splits[5]
-            clipped_reads.setdefault((insert, orientation), [])
-            clipped_reads[(insert, orientation)].append((clip_type, direction, position, scaffold))
+            read = ClippedRead.from_line(line)
+            clipped_reads.setdefault((read.insert, read.orientation), [])
+            clipped_reads[(read.insert, read.orientation)].append(read)
 
-            if clip_type == 'S':
-                soft_clipped_positions.setdefault((position, scaffold), 0)
-                soft_clipped_positions[(position, scaffold)] += 1
+            if read.clip_type == 'S':
+                soft_clipped_positions.setdefault((read.position, read.scaffold), 0)
+                soft_clipped_positions[(read.position, read.scaffold)] += 1
 
     return clipped_reads, soft_clipped_positions
 
@@ -47,8 +85,6 @@ def read_oprs_file(oprs_filepath: str):
         max_reasonable_insert_size (int): Maximum reasonable insert size.
         estimated_insert_size (int): Estimated insert size.
     """
-
-
 
     oprs_start_to_stop = {}
     with open(oprs_filepath, "r") as handle:
@@ -135,20 +171,6 @@ def denoise_softclips(soft_clipped_positions, softclip_range: int):
     return denoised_soft_clip_pos
 
 
-def filter_singletons(soft_clip_positions):
-    filtered_soft_clip = {}
-
-    for (softclip_position, softclip_scaffold), softclip_count in sorted(soft_clip_positions.items(),
-                                                                         key=itemgetter(1),
-                                                                         reverse=True):
-        if softclip_count > 1:
-            filtered_soft_clip[(softclip_position, softclip_scaffold)] = softclip_count
-        elif softclip_count <= 1:
-            break
-
-    return filtered_soft_clip
-
-
 def extract_regions(
     clipped_file,
     opr_file,
@@ -198,7 +220,7 @@ def extract_regions(
 
     # Removing singletons
 
-    filtered_soft_clipped_positions = filter_singletons(updated_soft_clipped_positions)
+    filtered_soft_clipped_positions = dict(filter(lambda x: x[1] > 1, soft_clipped_positions.items()))
 
     filtered_soft_clip_percentage = len(filtered_soft_clipped_positions) * 100.0 / upd_cnt
     reads = sum(filtered_soft_clipped_positions.values())
@@ -292,14 +314,13 @@ def extract_regions(
         if (opr_cnt + hs_cnt) < mincombcount:
             break
 
-    opr_supported_start_ends = updated_opr_supported_start_ends
     logging.info(f'Finished filtering. Working with {len(opr_supported_start_ends)} start/end combinations.')
 
     ref_opr_supported_start_ends = {}
 
     softclip_range = 20
 
-    for (start, end, scaffold), (hs_cnt, opr_cnt) in opr_supported_start_ends.items():
+    for (start, end, scaffold), (hs_cnt, opr_cnt) in updated_opr_supported_start_ends.items():
         found = False
         for (refstart, refend, refscaffold), (ref_hs_cnt, ref_opr_cnt) in ref_opr_supported_start_ends.items():
             if refscaffold == scaffold:
