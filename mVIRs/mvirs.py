@@ -46,7 +46,6 @@ def _execute_oprs(forward_read_file, reversed_read_file, out_bam_file, bwa_ref_n
 
     ### CHECKS END
 
-
     align(forward_read_file, reversed_read_file, bwa_ref_name, out_bam_file, threads)
     find_clipped_reads(out_bam_file, clipped_file)
     find_oprs(out_bam_file, opr_file, min_coverage, min_alength)

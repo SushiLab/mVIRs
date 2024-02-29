@@ -8,6 +8,16 @@ from .utils import shutdown
 
 
 def index_genome(seq_file: str, output_folder: str) -> None:
+    """
+    Builds a bwa index for a given genome file.
+
+    Args:
+        seq_file (str): The path to the genome file.
+        output_folder (str): The output folder for the index files.
+
+    Returns:
+        index_path (str): The path to the index file.
+    """
     logging.info(f'Start building bwa index on {seq_file}')
     # make output folder
     out_folder = pathlib.Path(output_folder)
@@ -29,15 +39,20 @@ def index_genome(seq_file: str, output_folder: str) -> None:
 
 
 def add_tags(alignedSegment: pysam.AlignedSegment) -> pysam.AlignedSegment:
-    """ Takes an AlignedSegment and add percent identity and alignment length as tags
+    """
+    Takes an AlignedSegment and add percent identity and alignment length as tags
     alignment length = MID
     mismatches = NM
     percent identity = (MID - NM) / MID
     The percent identity is a value between 0.0 and 1.0
     If the segment is unmapped then it is returned as with a percent identity of 0
     and an alignment length of 0.
-    :param alignedSegment: The pysam AlignedSegment object
-    :return: alignedSegment: The updated pysam AlignedSegment object
+
+    Args:
+        alignedSegment (pysam.AlignedSegment): The aligned segment to add tags to.
+
+    Returns:
+        pysam.AlignedSegment: The aligned segment with the added tags.
     """
 
     # Assuming that if the id tag is present that the other tags are also there.
@@ -77,7 +92,19 @@ def align(forward_read_file: str,
     2. Filter alignments by 97% identity, read coverage >=80%, alignmentlength >= 45 and remove unmapped alignments
     3. Each readname from R1 file gets an /R1 tag to its readname. /R2 is added for R2 alignments.
     4. This creates a temporary bam file. This bam file is sorted with samtools by name to produce the final bam file.
-    :return:
+
+    Args:
+        forward_read_file (str): The path to the forward read file.
+        reversed_read_file (str): The path to the reversed read file.
+        bwa_ref_name (str): The path to the reference genome index file.
+        out_bam_file (str): The path to the output bam file.
+        threads (int): The number of threads to use for the alignment.
+        min_percid (float): The minimum percent identity of the alignment to keep.
+        min_coverage (float): The minimum coverage of the alignment to keep.
+        min_alength (int): The minimum alignment length to keep.
+
+    Returns:
+        None
     """
 
 
@@ -112,7 +139,6 @@ def align(forward_read_file: str,
                     temp_bam_file_handle.write(record)
 
         process.stdout.close()
-
         return_code = process.wait()
         if return_code != 0:
             logging.error(f'BWA command failed with return code {return_code}')
@@ -126,7 +152,7 @@ def align(forward_read_file: str,
     command = f'samtools sort -n -m 4G -@ {threads} -o {out_bam_file} {temp_bam_file}'
     logging.info(f'\tCommand executed {command}')
     try:
-        returncode: int = subprocess.check_call(command, shell=True)
+        returncode = subprocess.check_call(command, shell=True)
     except subprocess.CalledProcessError as e:
         raise Exception(e)
     if returncode != 0:
@@ -134,5 +160,3 @@ def align(forward_read_file: str,
 
     pathlib.Path(temp_bam_file).unlink()
     logging.info('Finished alignment step')
-
-    return bwa_ref_name
