@@ -49,6 +49,27 @@ class ClippedRead:
         return cls(insert, orientation, clip_type, direction, position, scaffold)
 
 
+def write_output_fasta(output_fasta_file, ref_opr_supported_start_ends, reference_sequences_dict):
+    with open(output_fasta_file, 'w') as outhandle:
+        for (start, end, scaffold) in ref_opr_supported_start_ends.keys():
+            scaffold_sequence = reference_sequences_dict[scaffold]
+            subsequence = scaffold_sequence[start : end + 1]
+            outhandle.write(f'>{scaffold}:{start}-{end}\n'
+                            f'{subsequence}\n')
+
+
+def write_output_tab(output_tab_file, ref_opr_supported_start_ends, reference_sequences_dict):
+    with open(output_tab_file, 'w') as outhandle:
+        outhandle.write('scaffold\tstart\tend\ths_count\topr_count\tscaffold_cov\n')
+        for (start, end, scaffold), (hs_cnt, opr_cnt) in ref_opr_supported_start_ends.items():
+            scaffold_sequence = reference_sequences_dict[scaffold]
+            scaffold_length = len(scaffold_sequence)
+            subsequence = scaffold_sequence[start : end + 1]
+            scaffold_coverage = round(100.0 * len(subsequence) / scaffold_length, 6)
+            outhandle.write(f'{scaffold}\t{start}\t{end}\t{hs_cnt}\t{opr_cnt}\t{scaffold_coverage}\n')
+
+
+
 def read_clipped_file(clipped_file: str):
     """
     Reads clipped file.
@@ -72,6 +93,7 @@ def read_clipped_file(clipped_file: str):
                 soft_clipped_positions[(read.position, read.scaffold)] += 1
 
     return clipped_reads, soft_clipped_positions
+
 
 def read_oprs_file(oprs_filepath: str):
     """
@@ -120,23 +142,22 @@ def pair_hard_soft(clipped_reads):
     soft_to_hardclip_pairs = {}
 
     for alignments in clipped_reads.values():
-        softclipped = [aln for aln in alignments if aln[0] == 'S'][0]
-        hardclipped = [aln for aln in alignments if aln[0] == 'H']
+        softclipped = [aln for aln in alignments if aln.clip_type == 'S'][0]
+        hardclipped = [aln for aln in alignments if aln.clip_type == 'H']
         if len(hardclipped) == 0:
             continue
-        scaffold = softclipped[3]
-        softclipped_pos = softclipped[2]
         for hardclip in hardclipped:
-            hardclip_pos = hardclip[2]
-            if hardclip_pos > softclipped_pos:
+            if hardclip.position > softclipped.position:
                 # all fine, hardclip is in the beggining
-                pass
+                softclipped_pos = softclipped.position
+                hardclip_pos = hardclip.position
             else:
                 # reverse the positions, hardclip is in the end
-                softclipped_pos, hardclip_pos = hardclip_pos, softclipped_pos
+                softclipped_pos = hardclip.position
+                hardclip_pos = softclipped.position
 
-            soft_to_hardclip_pairs.setdefault((softclipped_pos, hardclip_pos, scaffold), 0)
-            soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, scaffold)] += 1
+            soft_to_hardclip_pairs.setdefault((softclipped_pos, hardclip_pos, softclipped.scaffold), 0)
+            soft_to_hardclip_pairs[(softclipped_pos, hardclip_pos, softclipped.scaffold)] += 1
 
     return soft_to_hardclip_pairs
 
@@ -145,18 +166,18 @@ def denoise_softclips(soft_clipped_positions, softclip_range: int):
 
     denoised_soft_clip_pos = {}
 
-    for (softclip_position, softclip_scaffold), softclip_count in sorted(soft_clipped_positions.items(),
+    for (softclip_scaffold, softclip_position), softclip_count in sorted(soft_clipped_positions.items(),
                                                                         key=itemgetter(1),
                                                                         reverse=True):
         candidates = {}
 
         for potential_pos in range(softclip_position - softclip_range,
                                    softclip_position + softclip_range):
-            if (potential_pos, softclip_scaffold) in denoised_soft_clip_pos:
-                candidates[(potential_pos, softclip_scaffold)] = denoised_soft_clip_pos[(potential_pos, softclip_scaffold)]
+            if (softclip_scaffold, potential_pos) in denoised_soft_clip_pos:
+                candidates[(softclip_scaffold, potential_pos)] = denoised_soft_clip_pos[(softclip_scaffold, potential_pos)]
 
         if len(candidates) == 0:
-            denoised_soft_clip_pos[(softclip_position, softclip_scaffold)] = softclip_count
+            denoised_soft_clip_pos[(softclip_scaffold, softclip_position)] = softclip_count
 
         else:
             if len(candidates) == 1:
@@ -219,7 +240,6 @@ def extract_regions(
                  'reads were kept.')
 
     # Removing singletons
-
     filtered_soft_clipped_positions = dict(filter(lambda x: x[1] > 1, soft_clipped_positions.items()))
 
     filtered_soft_clip_percentage = len(filtered_soft_clipped_positions) * 100.0 / upd_cnt
@@ -231,7 +251,6 @@ def extract_regions(
                  f'({reads_percentage:.0f}%) reads were kept.')
 
     # Pair hard & soft clips
-
     soft_to_hardclip_pairs = pair_hard_soft(clipped_reads)
 
     logging.info(f'Found {len(soft_to_hardclip_pairs)} hardclip-softclip split '
@@ -333,12 +352,7 @@ def extract_regions(
             ref_opr_supported_start_ends[(start, end, scaffold)] = (hs_cnt, opr_cnt)
 
 
-    with open(output_fasta_file, 'w') as outhandle:
-         for (start, end, scaffold), (hs_cnt, opr_cnt) in ref_opr_supported_start_ends.items():
-            scaffold_sequence = reference_sequences_dict[scaffold]
-            scaffold_length = len(scaffold_sequence)
-            subsequence = scaffold_sequence[start : end + 1]
-            scaffold_coverage = round(100.0 * len(subsequence) / scaffold_length, 6)
-            outhandle.write(f'>{scaffold}:{start}-{end}\t'
-                            f'OPRs={opr_cnt}-HSs={hs_cnt}-SF={scaffold_coverage}'
-                            f'\n{subsequence}\n')
+    write_output_fasta(output_fasta_file, ref_opr_supported_start_ends, reference_sequences_dict)
+    output_tab_file = output_fasta_file.replace('.fasta', '.tsv')
+    write_output_tab(output_tab_file, ref_opr_supported_start_ends, reference_sequences_dict)
+

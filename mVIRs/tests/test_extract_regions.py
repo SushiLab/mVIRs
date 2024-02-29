@@ -4,7 +4,7 @@ import io
 from time import time
 
 from mVIRs.extract_regions import denoise_softclips
-from ..extract_utils import read_clipped_file, read_oprs_file as oprs_cython
+from mVIRs.extract_utils import read_clipped_file, read_oprs_file as oprs_cython
 
 # class TestClippedFile(unittest.TestCase):
 #     def setUp(self) -> None:
@@ -33,28 +33,28 @@ class TestDenoiseSoftclips(unittest.TestCase):
         self.assertEqual(denoise_softclips({}, 10), {})
 
     def test_single_position(self):
-        soft_clipped_positions = {(10, 'A'): 2}
-        expected_output = {(10, 'A'): 2}
+        soft_clipped_positions = {('A', 10): 2}
+        expected_output = {('A', 10): 2}
         self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
 
     def test_multiple_positions_same_scaffold(self):
-        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1}
-        expected_output = {(10, 'A'): 2, (15, 'A'): 4}
+        soft_clipped_positions = {('A', 10): 2, ('A', 15): 3, ('A', 20): 1}
+        expected_output = {('A', 10):2, ('A', 15): 4}
         self.assertEqual(denoise_softclips(soft_clipped_positions, 5), expected_output)
 
     def test_multiple_positions_different_scaffolds(self):
-        soft_clipped_positions = {(10, 'A'): 2, (15, 'B'): 3, (20, 'C'): 1}
-        expected_output = {(10, 'A'): 2, (15, 'B'): 3, (20, 'C'): 1}
+        soft_clipped_positions = {('A', 10): 2, ('B', 15): 3, ('C', 20): 1}
+        expected_output = {('A', 10): 2, ('B', 15): 3, ('C', 20): 1}
         self.assertEqual(denoise_softclips(soft_clipped_positions, 5), expected_output)
 
     def test_multiple_positions_overlapping_ranges(self):
-        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1, (25, 'A'): 2}
-        expected_output = {(15, 'A'): 8}
+        soft_clipped_positions = {('A', 10): 2, ('A', 15): 3, ('A', 20): 1, ('A', 25): 2}
+        expected_output = {('A', 15): 8}
         self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
 
     def test_multiple_positions_multiple_winners(self):
-        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1, (25, 'A'): 2, (30, 'A'): 2}
-        expected_output = {(15, 'A'): 8, (30, 'A'): 2}
+        soft_clipped_positions = {('A', 10): 2, ('A', 15): 3, ('A', 20): 1, ('A', 25): 2, ('A', 30): 2}
+        expected_output = {('A', 15): 8, ('A', 30): 2}
         self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
 
 
