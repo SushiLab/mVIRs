@@ -3,39 +3,58 @@ from tempfile import TemporaryDirectory
 import io
 from time import time
 
-from mVIRs.extract_regions import extract_regions, read_clipped_file as read_clipped
-from ..extract_utils import read_clipped_file
+from mVIRs.extract_regions import denoise_softclips
+from ..extract_utils import read_clipped_file, read_oprs_file as oprs_cython
 
-class TestClippedFile(unittest.TestCase):
-    def setUp(self) -> None:
-        self.clipped_file = "mVIRs/tests/expected/ERR4552622_100k_mVIRs.clipped"
-
-    def test_read_clipped_file(self):
-        start = time()
-        clipped_dict2, softclipped_pos2 = read_clipped(self.clipped_file)
-        print(f"read_clipped took {time() - start} seconds")
-
-        start = time()
-        clipped_dict, softclipped_pos = read_clipped_file(self.clipped_file)
-        print(f"Cython read_clipped_file took {time() - start} seconds")
-
-
-
-# class TestExtractRegions(unittest.TestCase):
-
+# class TestClippedFile(unittest.TestCase):
 #     def setUp(self) -> None:
-#         self.opr_file = "tests/expected/ERR4552622_100k_mVIRs.oprs"
-#         self.clipped_file = "tests/expected/ERR4552622_100k_mVIRs.clipped"
-#         self.reference = "tests/data/np_salmoLT2.fasta.gz"
-#         self.expected_fasta = "tests/expected/ERR4552622_100k_mVIRs.fasta"
+#         self.clipped_file = "mVIRs/tests/expected/ERR4552622_100k_mVIRs.clipped"
 
-#     def test_extract_regions(self):
-#        with TemporaryDirectory() as tmp:
-#            output_fasta = tmp + "/test.fasta"
-#            extract_regions(self.clipped_file, self.opr_file,  self.reference, output_fasta,
-#                            min_length=4000, max_length=800_000, allow_complete_scaffolds=True)
 
-#            with io.open(output_fasta) as out, io.open(self.expected_fasta) as expected:
-#                self.assertListEqual(list(out), list(expected))
+# class TestOprsFile(unittest.TestCase):
+#     def setUp(self) -> None:
+#         self.opr_file = "mVIRs/tests/expected/ERR4552622_100k_mVIRs.oprs"
+#     def test_oprs_parsing(self):
+#         start = time()
+#         read_oprs_file(self.opr_file)
+#         print(f"Python: {time() - start}")
+
+#         start = time()
+#         oprs_cython(self.opr_file)
+#         print(f"Cython: {time() - start}")
+
+#         start = time()
+#         read_oprs_file(self.opr_file)
+#         print(f"Python: {time() - start}")
+
+
+class TestDenoiseSoftclips(unittest.TestCase):
+    def test_empty_input(self):
+        self.assertEqual(denoise_softclips({}, 10), {})
+
+    def test_single_position(self):
+        soft_clipped_positions = {(10, 'A'): 2}
+        expected_output = {(10, 'A'): 2}
+        self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
+
+    def test_multiple_positions_same_scaffold(self):
+        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1}
+        expected_output = {(10, 'A'): 2, (15, 'A'): 4}
+        self.assertEqual(denoise_softclips(soft_clipped_positions, 5), expected_output)
+
+    def test_multiple_positions_different_scaffolds(self):
+        soft_clipped_positions = {(10, 'A'): 2, (15, 'B'): 3, (20, 'C'): 1}
+        expected_output = {(10, 'A'): 2, (15, 'B'): 3, (20, 'C'): 1}
+        self.assertEqual(denoise_softclips(soft_clipped_positions, 5), expected_output)
+
+    def test_multiple_positions_overlapping_ranges(self):
+        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1, (25, 'A'): 2}
+        expected_output = {(15, 'A'): 8}
+        self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
+
+    def test_multiple_positions_multiple_winners(self):
+        soft_clipped_positions = {(10, 'A'): 2, (15, 'A'): 3, (20, 'A'): 1, (25, 'A'): 2, (30, 'A'): 2}
+        expected_output = {(15, 'A'): 8, (30, 'A'): 2}
+        self.assertEqual(denoise_softclips(soft_clipped_positions, 10), expected_output)
 
 
